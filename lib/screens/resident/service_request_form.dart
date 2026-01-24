@@ -1,18 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:societyhub/services/api_service.dart';
 
-class ServiceRequestForm extends StatelessWidget {
-  const ServiceRequestForm({super.key});
+class ServiceRequestForm extends StatefulWidget {
+  final String residentId;
+
+  const ServiceRequestForm({super.key, required this.residentId});
+
+  @override
+  State<ServiceRequestForm> createState() => _ServiceRequestFormState();
+}
+
+class _ServiceRequestFormState extends State<ServiceRequestForm> {
+  final _formKey = GlobalKey<FormState>();
+  final titleController = TextEditingController();
+  final descriptionController = TextEditingController();
+
+  String selectedCategory = 'Maintenance';
+  String selectedPriority = 'Normal';
+  final Color primaryBlue = const Color(0xFF1565C0);
 
   @override
   Widget build(BuildContext context) {
-    final _formKey = GlobalKey<FormState>();
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    const Color primaryBlue = Color(0xFF1565C0);
-
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('New Service Request'),
+        backgroundColor: primaryBlue,
+      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -24,136 +37,102 @@ class ServiceRequestForm extends StatelessWidget {
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              
-                const Text(
-                  'New Service Request',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color:primaryBlue
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Fill details to submit your request',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 25),
-
-                
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Request Title',
+                        prefixIcon: Icon(Icons.title),
                       ),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            // Title
-                            TextFormField(
-                              controller: titleController,
-                              decoration: InputDecoration(
-                                labelText: 'Request Title',
-                                prefixIcon: const Icon(Icons.title),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Enter request title'
-                                      : null,
-                            ),
-                            const SizedBox(height: 20),
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
 
-                            
-                            TextFormField(
-                              controller: descriptionController,
-                              maxLines: 5,
-                              decoration: InputDecoration(
-                                labelText: 'Description',
-                                prefixIcon:
-                                    const Icon(Icons.description),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) =>
-                                  value == null || value.isEmpty
-                                      ? 'Enter description'
-                                      : null,
-                            ),
-                            const SizedBox(height: 30),
-
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: Colors.black87,
-                                  side: const BorderSide(
-                                      color: primaryBlue, width: 2),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  elevation: 4,
-                                ),
-                               onPressed: () async {
-  if (_formKey.currentState!.validate()) {
-    bool success = await ApiService.submitRequest(
-      title: titleController.text,
-      description: descriptionController.text,
-      residentId: "resident_001", 
-    );
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Request Submitted")),
-      );
-      Navigator.pop(context);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Submission failed")),
-      );
-    }
-  }
-},
-
-                                child: const Text(
-                                  'Submit Request',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'Maintenance', child: Text('Maintenance')),
+                        DropdownMenuItem(
+                            value: 'Electricity', child: Text('Electricity')),
+                        DropdownMenuItem(
+                            value: 'Plumbing', child: Text('Plumbing')),
+                        DropdownMenuItem(
+                            value: 'Security', child: Text('Security')),
+                      ],
+                      onChanged: (v) => setState(() => selectedCategory = v!),
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        prefixIcon: Icon(Icons.category),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+
+                    DropdownButtonFormField<String>(
+                      value: selectedPriority,
+                      items: const [
+                        DropdownMenuItem(value: 'Low', child: Text('Low')),
+                        DropdownMenuItem(value: 'Normal', child: Text('Normal')),
+                        DropdownMenuItem(value: 'High', child: Text('High')),
+                      ],
+                      onChanged: (v) => setState(() => selectedPriority = v!),
+                      decoration: const InputDecoration(
+                        labelText: 'Priority',
+                        prefixIcon: Icon(Icons.flag),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    TextFormField(
+                      controller: descriptionController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        prefixIcon: Icon(Icons.description),
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (_formKey.currentState!.validate()) {
+                            bool success = await ApiService.submitRequest(
+                              residentId: widget.residentId,
+                              title: titleController.text.trim(),
+                              description: descriptionController.text.trim(),
+                              category: selectedCategory,
+                              priority: selectedPriority,
+                            );
+
+                            if (success) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Request Submitted')),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('Submission failed')),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Submit Request',
+                            style: TextStyle(fontSize: 16)),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

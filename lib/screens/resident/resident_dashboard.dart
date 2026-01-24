@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:societyhub/services/api_service.dart';
 import 'service_request_form.dart';
 import 'request_tracking.dart';
+import 'resident_info_screen.dart'; // ✅ Corrected import
+import 'package:societyhub/services/api_service.dart';
 
 class ResidentDashboardScreen extends StatefulWidget {
-  final String residentId; 
-
+  final String residentId;
   const ResidentDashboardScreen({super.key, required this.residentId});
 
   @override
-  State<ResidentDashboardScreen> createState() =>
-      _ResidentDashboardScreenState();
+  State<ResidentDashboardScreen> createState() => _ResidentDashboardScreenState();
 }
 
 class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
-  final Color primaryBlue = const Color(0xFF1976D2); 
+  final Color primaryBlue = const Color(0xFF1565C0);
 
   int totalRequests = 0;
   int pendingRequests = 0;
+  int completedRequests = 0;
   bool isLoading = true;
-  List<dynamic> requests = [];
 
   @override
   void initState() {
@@ -27,12 +26,7 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
     if (widget.residentId.isNotEmpty) {
       fetchResidentRequests();
     } else {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Resident ID is missing")),
-      );
+      isLoading = false;
     }
   }
 
@@ -40,184 +34,194 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
     try {
       final res = await ApiService.getRequestsForResident(widget.residentId);
       setState(() {
-        requests = res;
         totalRequests = res.length;
-        pendingRequests =
-            res.where((r) => r['status'] == 'Pending').length;
+        pendingRequests = res.where((r) => r['status'] == 'Pending').length;
+        completedRequests = res.where((r) => r['status'] == 'Completed').length;
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      isLoading = false;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to load your requests")),
+        const SnackBar(content: Text("Failed to load requests")),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryBlue = const Color(0xFF1565C0); 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [primaryBlue.withOpacity(0.8), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      appBar: AppBar(
+        title: const Text('Resident Dashboard'),
+        backgroundColor: primaryBlue,
+        actions: [
+          // Settings Icon → Popup Menu
+          PopupMenuButton<int>(
+            icon: const Icon(Icons.settings),
+            onSelected: (item) {
+              if (item == 0) {
+                // Edit Profile → opens resident_info_screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        ResidentInfoScreen(residentId: widget.residentId),
+                  ),
+                );
+              } else if (item == 1) {
+                // Logout
+                Navigator.of(context)
+                    .pushNamedAndRemoveUntil('/login', (route) => false);
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem<int>(
+                value: 0,
+                child: Text('Edit Profile'),
+              ),
+              const PopupMenuItem<int>(
+                value: 1,
+                child: Text('Logout'),
+              ),
+            ],
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Welcome 👋',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: primaryBlue,
-                  ),
+        ],
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [primaryBlue.withOpacity(0.8), Colors.white],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Manage your requests efficiently',
-                  style: TextStyle(color: Colors.black87, fontSize: 16),
-                ),
-                const SizedBox(height: 30),
-
-                
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.assignment, size: 40, color: primaryBlue),
-                            const SizedBox(height: 10),
-                            Text(
-                              '$totalRequests',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            const Text('Total Requests',
-                                style: TextStyle(color: Colors.black54)),
-                          ],
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Welcome 👋',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.pending_actions,
-                                size: 40, color: primaryBlue),
-                            const SizedBox(height: 10),
-                            Text(
-                              '$pendingRequests',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            const Text('Pending Requests',
-                                style: TextStyle(color: Colors.black54)),
-                          ],
-                        ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Manage your service requests',
+                        style: TextStyle(color: Colors.black87),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 40),
+                      const SizedBox(height: 25),
 
-               
-                SizedBox(
-                  height: 55,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => ServiceRequestForm()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black87,
-                      side: BorderSide(color: primaryBlue, width: 2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      elevation: 5,
-                    ),
-                    child: const Text(
-                      'Send Task Request',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
+                      // SUMMARY CARDS
+                      Row(
+                        children: [
+                          _buildStatCard(
+                              'Total', totalRequests, Icons.assignment),
+                          const SizedBox(width: 10),
+                          _buildStatCard(
+                              'Pending', pendingRequests, Icons.pending),
+                          const SizedBox(width: 10),
+                          _buildStatCard(
+                              'Completed', completedRequests, Icons.check_circle),
+                        ],
+                      ),
+                      const SizedBox(height: 35),
+
+                      // SUBMIT REQUEST BUTTON
+                      _buildActionButton(
+                        text: 'Submit Service Request',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ServiceRequestForm(
+                                  residentId: widget.residentId),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 15),
+
+                      // TRACK REQUEST BUTTON
+                      _buildActionButton(
+                        text: 'Track My Requests',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => RequestTracking(
+                                  residentId: widget.residentId),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  height: 55,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => RequestTracking()),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black87,
-                      side: BorderSide(color: primaryBlue, width: 2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                      elevation: 5,
-                    ),
-                    child: const Text(
-                      'Track Request',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+    );
+  }
+
+  // ==========================
+  // SUMMARY STAT CARD
+  // ==========================
+  Widget _buildStatCard(String title, int count, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: primaryBlue, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              '$count',
+              style: const TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(title, style: const TextStyle(color: Colors.black54)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================
+  // ACTION BUTTON
+  // ==========================
+  Widget _buildActionButton(
+      {required String text, required VoidCallback onTap}) {
+    return SizedBox(
+      height: 55,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          side: BorderSide(color: primaryBlue, width: 2),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 4,
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
       ),
     );

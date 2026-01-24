@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:societyhub/screens/resident/resident_flow_handler.dart';
+import 'package:societyhub/services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,46 +14,90 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _isLoading = false; 
+  bool _isLoading = false;
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<void> login(BuildContext context, String role) async {
-  setState(() {
-    _isLoading = true;
-  });
-
-  try {
-    
-    String residentId = 'resident_001'; 
-    String workerId = 'worker_001';     
-    await Future.delayed(const Duration(seconds: 1)); 
-
-    
-    if (role == 'resident') {
-      Navigator.pushReplacementNamed(
-        context,
-        '/resident_dashboard',
-        arguments: residentId, 
-      );
-    } else if (role == 'admin') {
-      Navigator.pushReplacementNamed(context, '/admin_dashboard');
-    } else if (role == 'worker') {
-      Navigator.pushReplacementNamed(
-        context,
-        '/worker_dashboard',
-        arguments: workerId,
-      );
-    }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Login failed!')),
-    );
-  } finally {
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
     });
-  }
-}
 
+    try {
+      if (role == 'resident') {
+        // ✅ Sign in with Firebase
+        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text,
+        );
+
+        final residentId = userCredential.user!.uid;
+
+        // ✅ Check if resident profile exists in backend
+        bool profileExists = await ApiService.checkResidentProfile(residentId);
+
+        if (profileExists) {
+          // Profile exists → go to resident dashboard
+          Navigator.pushReplacementNamed(
+            context,
+            '/resident_dashboard',
+            arguments: residentId,
+          );
+        } else {
+          // Profile does not exist → go to profile setup (ResidentFlowHandler)
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ResidentFlowHandler(residentId: residentId),
+            ),
+          );
+        }
+      } else if (role == 'admin') {
+        // ✅ Admin login (could also use Firebase later)
+        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text,
+        );
+
+        Navigator.pushReplacementNamed(context, '/admin_dashboard');
+      } else if (role == 'worker') {
+        // ✅ Worker login
+        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: emailController.text.trim(),
+          password: passwordController.text,
+        );
+
+        final workerId = userCredential.user!.uid;
+        Navigator.pushReplacementNamed(
+          context,
+          '/worker_dashboard',
+          arguments: workerId,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      // 🔹 Show Firebase login error
+      String message = '';
+      if (e.code == 'user-not-found') {
+        message = 'No user found for this email.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Incorrect password.';
+      } else {
+        message = e.message ?? 'Login failed';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login failed: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,9 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                            // TODO: Implement forgot password
-                          },
+                          onPressed: () {},
                           child: const Text(
                             'Forgot Password?',
                             style: TextStyle(color: Colors.grey),
@@ -182,38 +226,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                                 ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: const [
-                          Expanded(child: Divider(color: Colors.grey)),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Text('OR', style: TextStyle(color: Colors.grey)),
-                          ),
-                          Expanded(child: Divider(color: Colors.grey)),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.g_mobiledata, color: Colors.red),
-                            iconSize: 40,
-                            onPressed: () {},
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.facebook, color: Colors.blue),
-                            iconSize: 40,
-                            onPressed: () {},
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.apple, color: Colors.black),
-                            iconSize: 40,
-                            onPressed: () {},
-                          ),
-                        ],
                       ),
                     ],
                   ),

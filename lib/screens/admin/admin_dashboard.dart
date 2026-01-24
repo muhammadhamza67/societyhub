@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:societyhub/services/api_service.dart';
+ // <-- import the new screen
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -28,7 +29,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       setState(() {
         totalRequests = allRequests.length;
         pendingRequests = allRequests.where((r) => r['status'] == 'Pending').length;
-     
         isLoading = false;
       });
     } catch (e) {
@@ -44,7 +44,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ===== Added AppBar with back arrow =====
       appBar: AppBar(
         title: const Text("Admin Dashboard"),
         leading: IconButton(
@@ -72,7 +71,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // ===== Header =====
                       Text(
                         'Welcome Admin 👋',
                         style: TextStyle(
@@ -92,7 +90,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       const SizedBox(height: 30),
 
-                      
+                      // ===== Summary Cards =====
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -106,7 +104,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       const SizedBox(height: 40),
 
-                      
+                      // ===== Dashboard Buttons =====
                       _buildDashboardButton(
                         context,
                         'Manage Requests / Tasks',
@@ -122,6 +120,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         '/admin_track_tasks',
                         Icons.track_changes,
                       ),
+                      const SizedBox(height: 20),
+                      // ===== New Button for Residents =====
+                      _buildDashboardButton(
+                        context,
+                        'Manage Residents',
+                        primaryGreen,
+                        '/admin_manage_residents', // <-- route for new screen
+                        Icons.people_alt,
+                      ),
                     ],
                   ),
           ),
@@ -130,7 +137,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  
   Widget _buildSummaryCard(String title, String count, Color color, IconData icon) {
     return Expanded(
       child: Container(
@@ -168,7 +174,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  
   Widget _buildDashboardButton(
       BuildContext context, String title, Color color, String route, IconData icon) {
     return SizedBox(

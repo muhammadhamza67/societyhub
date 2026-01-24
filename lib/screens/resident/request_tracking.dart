@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:societyhub/services/api_service.dart'; 
+import 'package:societyhub/services/api_service.dart';
 
 class RequestTracking extends StatefulWidget {
-  const RequestTracking({super.key});
+  final String residentId;
+
+  const RequestTracking({super.key, required this.residentId});
 
   @override
   State<RequestTracking> createState() => _RequestTrackingState();
@@ -21,12 +23,10 @@ class _RequestTrackingState extends State<RequestTracking> {
 
   Future<void> fetchRequests() async {
     try {
-      final fetchedRequests =
-          await ApiService.getRequestsForResident("resident_001"); 
-      final mappedRequests = List<Map<String, dynamic>>.from(fetchedRequests);
-
+      final data =
+          await ApiService.getRequestsForResident(widget.residentId);
       setState(() {
-        requests = mappedRequests;
+        requests = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
     } catch (e) {
@@ -39,101 +39,62 @@ class _RequestTrackingState extends State<RequestTracking> {
     }
   }
 
+  Color statusColor(String status) {
+    switch (status) {
+      case 'Pending':
+        return Colors.orange;
+      case 'Assigned':
+        return Colors.blue;
+      case 'In Progress':
+        return Colors.purple;
+      case 'Completed':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [primaryBlue.withOpacity(0.8), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                
-                Text(
-                  'Track Requests',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: primaryBlue,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Monitor your task requests and their status',
-                  style: TextStyle(color: Colors.black87, fontSize: 16),
-                ),
-                const SizedBox(height: 30),
-
-                
-                Expanded(
-                  child: isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : requests.isEmpty
-                          ? const Center(child: Text("No requests found"))
-                          : ListView.builder(
-                              itemCount: requests.length,
-                              itemBuilder: (context, index) {
-                                final request = requests[index];
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 15),
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 6),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.task,
-                                          size: 36, color: primaryBlue),
-                                      const SizedBox(width: 20),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              request['title'] ?? '',
-                                              style: const TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87),
-                                            ),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              'Status: ${request['status'] ?? ''}',
-                                              style: const TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.black54),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      appBar: AppBar(
+        title: const Text('Track Requests'),
+        backgroundColor: primaryBlue,
       ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : requests.isEmpty
+              ? const Center(child: Text('No requests found'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: requests.length,
+                  itemBuilder: (context, index) {
+                    final r = requests[index];
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      margin: const EdgeInsets.only(bottom: 14),
+                      child: ListTile(
+                        leading: Icon(Icons.assignment, color: primaryBlue),
+                        title: Text(r['title'] ?? ''),
+                        subtitle: Text(r['category'] ?? ''),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: statusColor(r['status']),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            r['status'] ?? '',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 12),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }
