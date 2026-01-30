@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:societyhub/services/api_service.dart'; // API service
 
 class WorkerTaskListScreen extends StatefulWidget {
-  const WorkerTaskListScreen({super.key});
+  final String workerId; // 🔹 Added parameter
+
+  const WorkerTaskListScreen({super.key, required this.workerId});
 
   @override
   State<WorkerTaskListScreen> createState() => _WorkerTaskListScreenState();
@@ -21,7 +23,8 @@ class _WorkerTaskListScreenState extends State<WorkerTaskListScreen> {
 
   Future<void> fetchTasks() async {
     try {
-      final fetchedTasks = await ApiService.getWorkerTasks("worker_001"); // Replace with logged-in worker ID
+      // 🔹 Use the dynamic workerId passed to the widget
+      final fetchedTasks = await ApiService.getWorkerTasks(widget.workerId);
       setState(() {
         tasks = List<Map<String, dynamic>>.from(fetchedTasks);
         isLoading = false;
@@ -51,7 +54,6 @@ class _WorkerTaskListScreenState extends State<WorkerTaskListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                
                 Row(
                   children: [
                     IconButton(
@@ -156,7 +158,6 @@ class _WorkerTaskListScreenState extends State<WorkerTaskListScreen> {
     );
   }
 
- 
   static Color _statusColor(String status) {
     switch (status) {
       case 'Pending':
@@ -164,7 +165,7 @@ class _WorkerTaskListScreenState extends State<WorkerTaskListScreen> {
       case 'In Progress':
         return Colors.blue;
       case 'Assigned':
-        return Colors.purple; 
+        return Colors.purple;
       case 'Completed':
         return Colors.green;
       default:

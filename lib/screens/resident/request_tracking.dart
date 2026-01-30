@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:societyhub/services/api_service.dart';
+import 'resident_chat_screen.dart'; // 👈 Make sure this import exists
 
 class RequestTracking extends StatefulWidget {
   final String residentId;
@@ -30,15 +31,14 @@ class _RequestTrackingState extends State<RequestTracking> {
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      isLoading = false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Failed to fetch requests")),
       );
     }
   }
 
+  /// STATUS COLOR MAPPING (Professional lifecycle)
   Color statusColor(String status) {
     switch (status) {
       case 'Pending':
@@ -47,10 +47,12 @@ class _RequestTrackingState extends State<RequestTracking> {
         return Colors.blue;
       case 'In Progress':
         return Colors.purple;
-      case 'Completed':
+      case 'Resolved':
         return Colors.green;
-      default:
+      case 'Closed':
         return Colors.grey;
+      default:
+        return Colors.black54;
     }
   }
 
@@ -70,31 +72,87 @@ class _RequestTrackingState extends State<RequestTracking> {
                   itemCount: requests.length,
                   itemBuilder: (context, index) {
                     final r = requests[index];
-                    return Card(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                    final status = r['status'] ?? 'Pending';
+
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 14),
-                      child: ListTile(
-                        leading: Icon(Icons.assignment, color: primaryBlue),
-                        title: Text(r['title'] ?? ''),
-                        subtitle: Text(r['category'] ?? ''),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: statusColor(r['status']),
-                            borderRadius: BorderRadius.circular(12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
                           ),
-                          child: Text(
-                            r['status'] ?? '',
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          /// TITLE
+                          Text(
+                            r['title'] ?? '',
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 12),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
+
+                          const SizedBox(height: 6),
+
+                          /// CATEGORY + PRIORITY
+                          Text("Category: ${r['category'] ?? '-'}"),
+                          Text("Priority: ${r['priority'] ?? '-'}"),
+
+                          const SizedBox(height: 10),
+
+                          /// STATUS BADGE
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color:
+                                  statusColor(status).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                color: statusColor(status),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
                 ),
+      // ================= CHAT BUTTON =================
+      floatingActionButton: requests.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: primaryBlue,
+              label: const Text("Chat with Admin"),
+              icon: const Icon(Icons.chat),
+              onPressed: () {
+                if (requests.isNotEmpty) {
+                  final firstRequestId = requests[0]['_id'];
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ResidentChatScreen(
+                        requestId: firstRequestId,
+                        residentId: widget.residentId,
+                      ),
+                    ),
+                  );
+                }
+              },
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

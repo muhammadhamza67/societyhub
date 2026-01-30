@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:societyhub/services/api_service.dart';
 
 class WorkerDashboardScreen extends StatefulWidget {
-  const WorkerDashboardScreen({super.key});
+  final String workerId; // 🔹 Added workerId parameter
+
+  const WorkerDashboardScreen({super.key, required this.workerId});
 
   @override
   State<WorkerDashboardScreen> createState() => _WorkerDashboardScreenState();
@@ -27,16 +29,18 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
 
   Future<void> fetchTasks() async {
     try {
-      final fetchedTasks = await ApiService.getWorkerTasks("worker_001");
-      // fetchedTasks is List<dynamic>, convert to List<Map<String,dynamic>>
+      // 🔹 Use dynamic workerId
+      final fetchedTasks = await ApiService.getWorkerTasks(widget.workerId);
       final mappedTasks = List<Map<String, dynamic>>.from(fetchedTasks);
 
       setState(() {
         tasks = mappedTasks;
         totalTasks = tasks.length;
         pendingTasks = tasks.where((t) => t['status'] == 'Pending').length;
-        inProgressTasks = tasks.where((t) => t['status'] == 'In Progress').length;
-        completedTasks = tasks.where((t) => t['status'] == 'Completed').length;
+        inProgressTasks =
+            tasks.where((t) => t['status'] == 'In Progress').length;
+        completedTasks =
+            tasks.where((t) => t['status'] == 'Completed').length;
         isLoading = false;
       });
     } catch (e) {
@@ -141,7 +145,12 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                             elevation: 4,
                           ),
                           onPressed: () {
-                            Navigator.pushNamed(context, '/worker_task_list');
+                            // 🔹 Pass workerId to task list screen
+                            Navigator.pushNamed(
+                              context,
+                              '/worker_task_list',
+                              arguments: widget.workerId,
+                            );
                           },
                           child: const Text(
                             'View Assigned Tasks',

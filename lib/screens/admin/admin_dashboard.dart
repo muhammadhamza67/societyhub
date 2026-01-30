@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:societyhub/services/api_service.dart';
- // <-- import the new screen
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -26,9 +25,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> fetchDashboardData() async {
     try {
       final allRequests = await ApiService.getAllRequests(); 
+      final allWorkers = await ApiService.getAllWorkers(); // 🔹 fetch all workers
+
       setState(() {
         totalRequests = allRequests.length;
         pendingRequests = allRequests.where((r) => r['status'] == 'Pending').length;
+        totalWorkers = allWorkers.length; // 🔹 update total workers
         isLoading = false;
       });
     } catch (e) {
@@ -99,7 +101,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           _buildSummaryCard('Pending', pendingRequests.toString(),
                               Colors.orangeAccent, Icons.pending_actions),
                           _buildSummaryCard('Total Workers', totalWorkers.toString(),
-                              Colors.blueAccent, Icons.group),
+                              Colors.blueAccent, Icons.engineering), // 🔹 new icon for workers
                         ],
                       ),
                       const SizedBox(height: 40),
@@ -121,13 +123,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         Icons.track_changes,
                       ),
                       const SizedBox(height: 20),
-                      // ===== New Button for Residents =====
                       _buildDashboardButton(
                         context,
                         'Manage Residents',
                         primaryGreen,
-                        '/admin_manage_residents', // <-- route for new screen
+                        '/admin_manage_residents',
                         Icons.people_alt,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildDashboardButton(
+                        context,
+                        'Manage Workers', // 🔹 new button
+                        primaryGreen,
+                        '/admin_manage_workers', // 🔹 route to workers screen
+                        Icons.engineering,
                       ),
                     ],
                   ),
