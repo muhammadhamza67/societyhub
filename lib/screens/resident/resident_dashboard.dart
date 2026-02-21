@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'service_request_form.dart';
 import 'request_tracking.dart';
-import 'resident_info_screen.dart'; // ✅ Corrected import
+import 'resident_info_screen.dart';
 import 'package:societyhub/services/api_service.dart';
 
 class ResidentDashboardScreen extends StatefulWidget {
@@ -35,135 +35,136 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
       final res = await ApiService.getRequestsForResident(widget.residentId);
       setState(() {
         totalRequests = res.length;
-        pendingRequests = res.where((r) => r['status'] == 'Pending').length;
-        completedRequests = res.where((r) => r['status'] == 'Completed').length;
+        pendingRequests =
+            res.where((r) => r['status']?.toString().toLowerCase() == 'pending').length;
+        completedRequests =
+            res.where((r) => r['status']?.toString().toLowerCase() == 'completed').length;
         isLoading = false;
       });
     } catch (e) {
-      isLoading = false;
+      setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Failed to load requests")),
       );
     }
   }
 
+  // 🔹 Handle back navigation
+  Future<bool> _onWillPop() async {
+    Navigator.pushNamedAndRemoveUntil(context, '/roleSelection', (route) => false);
+    return false; // prevent default pop
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Resident Dashboard'),
-        backgroundColor: primaryBlue,
-        actions: [
-          // Settings Icon → Popup Menu
-          PopupMenuButton<int>(
-            icon: const Icon(Icons.settings),
-            onSelected: (item) {
-              if (item == 0) {
-                // Edit Profile → opens resident_info_screen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        ResidentInfoScreen(residentId: widget.residentId),
-                  ),
-                );
-              } else if (item == 1) {
-                // Logout
-                Navigator.of(context)
-                    .pushNamedAndRemoveUntil('/login', (route) => false);
-              }
+    return WillPopScope(
+      onWillPop: _onWillPop, // intercept Android back button
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Resident Dashboard'),
+          backgroundColor: primaryBlue,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.pushNamedAndRemoveUntil(context, '/roleSelection', (route) => false);
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem<int>(
-                value: 0,
-                child: Text('Edit Profile'),
-              ),
-              const PopupMenuItem<int>(
-                value: 1,
-                child: Text('Logout'),
-              ),
-            ],
           ),
-        ],
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [primaryBlue.withOpacity(0.8), Colors.white],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+          actions: [
+            PopupMenuButton<int>(
+              icon: const Icon(Icons.settings),
+              onSelected: (item) {
+                switch (item) {
+                  case 0:
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ResidentInfoScreen(residentId: widget.residentId),
+                      ),
+                    );
+                    break;
+                  case 1:
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem<int>(value: 0, child: Text('Edit Profile')),
+                PopupMenuItem<int>(value: 1, child: Text('Logout')),
+              ],
+            ),
+          ],
+        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [primaryBlue.withOpacity(0.8), Colors.white],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
                 ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'Welcome 👋',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Welcome 👋',
+                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Manage your service requests',
-                        style: TextStyle(color: Colors.black87),
-                      ),
-                      const SizedBox(height: 25),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Manage your service requests',
+                          style: TextStyle(color: Colors.black87),
+                        ),
+                        const SizedBox(height: 25),
 
-                      // SUMMARY CARDS
-                      Row(
-                        children: [
-                          _buildStatCard(
-                              'Total', totalRequests, Icons.assignment),
-                          const SizedBox(width: 10),
-                          _buildStatCard(
-                              'Pending', pendingRequests, Icons.pending),
-                          const SizedBox(width: 10),
-                          _buildStatCard(
-                              'Completed', completedRequests, Icons.check_circle),
-                        ],
-                      ),
-                      const SizedBox(height: 35),
+                        // SUMMARY CARDS
+                        Row(
+                          children: [
+                            _buildStatCard('Total', totalRequests, Icons.assignment),
+                            const SizedBox(width: 10),
+                            _buildStatCard('Pending', pendingRequests, Icons.pending),
+                            const SizedBox(width: 10),
+                            _buildStatCard('Completed', completedRequests, Icons.check_circle),
+                          ],
+                        ),
+                        const SizedBox(height: 35),
 
-                      // SUBMIT REQUEST BUTTON
-                      _buildActionButton(
-                        text: 'Submit Service Request',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ServiceRequestForm(
-                                  residentId: widget.residentId),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 15),
+                        // SUBMIT REQUEST BUTTON
+                        _buildActionButton(
+                          text: 'Submit Service Request',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ServiceRequestForm(residentId: widget.residentId),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 15),
 
-                      // TRACK REQUEST BUTTON
-                      _buildActionButton(
-                        text: 'Track My Requests',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => RequestTracking(
-                                  residentId: widget.residentId),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                        // TRACK REQUEST BUTTON
+                        _buildActionButton(
+                          text: 'Track My Requests',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RequestTracking(residentId: widget.residentId),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -191,8 +192,7 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
             const SizedBox(height: 8),
             Text(
               '$count',
-              style: const TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(title, style: const TextStyle(color: Colors.black54)),
@@ -205,8 +205,7 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
   // ==========================
   // ACTION BUTTON
   // ==========================
-  Widget _buildActionButton(
-      {required String text, required VoidCallback onTap}) {
+  Widget _buildActionButton({required String text, required VoidCallback onTap}) {
     return SizedBox(
       height: 55,
       child: ElevatedButton(
@@ -215,8 +214,7 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
           backgroundColor: Colors.white,
           foregroundColor: Colors.black,
           side: BorderSide(color: primaryBlue, width: 2),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 4,
         ),
         child: Text(

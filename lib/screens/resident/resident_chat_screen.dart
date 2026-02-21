@@ -1,15 +1,14 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:societyhub/services/api_service.dart';
+import 'package:societyhub/services/chat_service.dart';
 
 class ResidentChatScreen extends StatefulWidget {
-  final String requestId;
   final String residentId;
+  final String requestId;
 
   const ResidentChatScreen({
     super.key,
-    required this.requestId,
     required this.residentId,
+    required this.requestId,
   });
 
   @override
@@ -17,177 +16,120 @@ class ResidentChatScreen extends StatefulWidget {
 }
 
 class _ResidentChatScreenState extends State<ResidentChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  final ChatService _chatService = ChatService();
+  final TextEditingController _controller = TextEditingController();
 
   List<Map<String, dynamic>> messages = [];
-  Timer? _pollingTimer;
-  bool _isSending = false;
 
   @override
   void initState() {
     super.initState();
     _loadMessages();
+  }
 
-    /// 🔁 Poll messages every 3 seconds
-    _pollingTimer = Timer.periodic(
-      const Duration(seconds: 3),
-      (_) => _loadMessages(),
-    );
+  /// Load all messages for this resident/request
+  Future<void> _loadMessages() async {
+    try {
+      final msgs = await _chatService.fetchChatMessages(
+        residentId: widget.residentId,
+        requestId: widget.requestId,
+      );
+      setState(() {
+        messages = msgs;
+      });
+
+      // Connect WebSocket to receive real-time admin messages
+      _chatService.connect((msg) {
+        setState(() {
+          messages.add({
+            "sender": "admin",
+            "message": msg,
+            "timestamp": DateTime.now().toIso8601String()
+          });
+        });
+      }, residentId: widget.residentId, requestId: widget.requestId);
+    } catch (e) {
+      print("Error loading messages: $e");
+    }
+  }
+
+  /// Send a message
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
+    try {
+      await _chatService.sendMessage(
+        residentId: widget.residentId,
+        requestId: widget.requestId,
+        sender: "resident",
+        message: text,
+        toId: "admin", // assuming admin ID is handled as "admin"
+      );
+
+      setState(() {
+        messages.add({
+          "sender": "resident",
+          "message": text,
+          "timestamp": DateTime.now().toIso8601String()
+        });
+        _controller.clear();
+      });
+    } catch (e) {
+      print("Error sending message: $e");
+    }
   }
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
-    _messageController.dispose();
-    _scrollController.dispose();
+    _controller.dispose();
+    _chatService.disconnect();
     super.dispose();
-  }
-
-  Future<void> _loadMessages() async {
-    try {
-      final data = await ApiService.getResidentChat(widget.requestId);
-
-      setState(() {
-        messages = data;
-      });
-
-      /// Auto scroll to bottom
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(
-            _scrollController.position.maxScrollExtent,
-          );
-        }
-      });
-    } catch (e) {
-      debugPrint("Failed to load messages: $e");
-    }
-  }
-
-  Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
-
-    setState(() => _isSending = true);
-
-    try {
-      await ApiService.sendResidentChat(
-        requestId: widget.requestId,
-        senderId: widget.residentId,
-        senderRole: "resident",
-        message: _messageController.text.trim(),
-      );
-
-      _messageController.clear();
-      await _loadMessages();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to send message")),
-      );
-    } finally {
-      setState(() => _isSending = false);
-    }
-  }
-
-  bool _isMyMessage(Map<String, dynamic> msg) {
-    return msg['sender_id'] == widget.residentId;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Chat with Admin"),
-        backgroundColor: const Color(0xFF1565C0),
-      ),
+      appBar: AppBar(title: const Text("Chat with Admin")),
       body: Column(
         children: [
-          /// 📨 Messages
           Expanded(
             child: ListView.builder(
-              controller: _scrollController,
               padding: const EdgeInsets.all(12),
               itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final msg = messages[index];
-                final isMe = _isMyMessage(msg);
-
+              itemBuilder: (_, i) {
+                final msg = messages[i];
+                final isResident = msg["sender"] == "resident";
                 return Align(
                   alignment:
-                      isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      isResident ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
                     margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    constraints: BoxConstraints(
-                        maxWidth:
-                            MediaQuery.of(context).size.width * 0.75),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isMe
-                          ? const Color(0xFF1565C0)
-                          : Colors.grey.shade200,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft:
-                            isMe ? const Radius.circular(16) : Radius.zero,
-                        bottomRight:
-                            isMe ? Radius.zero : const Radius.circular(16),
-                      ),
+                      color: isResident ? Colors.green[200] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      msg['message'] ?? '',
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black87,
-                        fontSize: 15,
-                      ),
-                    ),
+                    child: Text(msg["message"]),
                   ),
                 );
               },
             ),
           ),
-
-          /// ✍️ Input box
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 5,
-                )
-              ],
-            ),
+          Padding(
+            padding: const EdgeInsets.all(8),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: "Type your message...",
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16),
-                    ),
+                    controller: _controller,
+                    decoration:
+                        const InputDecoration(hintText: "Type your message..."),
                   ),
                 ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: const Color(0xFF1565C0),
-                  child: IconButton(
-                    icon: _isSending
-                        ? const CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2)
-                        : const Icon(Icons.send, color: Colors.white),
-                    onPressed: _isSending ? null : _sendMessage,
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: _sendMessage,
                 ),
               ],
             ),

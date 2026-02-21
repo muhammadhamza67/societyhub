@@ -1,188 +1,173 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:societyhub/services/api_service.dart';
+import 'package:societyhub/services/chat_service.dart';
 
 class AdminChatScreen extends StatefulWidget {
-  final String residentId; // Resident to chat with
-
-  const AdminChatScreen({
-    super.key,
-    required this.residentId,
-  });
+  const AdminChatScreen({super.key});
 
   @override
   State<AdminChatScreen> createState() => _AdminChatScreenState();
 }
 
 class _AdminChatScreenState extends State<AdminChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  final ChatService _chatService = ChatService();
+  final TextEditingController _controller = TextEditingController();
 
+  List<Map<String, dynamic>> chatList = [];
   List<Map<String, dynamic>> messages = [];
-  Timer? _pollingTimer;
-  bool _isSending = false;
 
-  late final String adminId;
+  String? selectedResidentId;
+  String? selectedRequestId;
 
   @override
   void initState() {
     super.initState();
-    // Get the current logged-in admin UID
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      throw Exception("Admin not logged in");
+    _loadChats();
+  }
+
+  /// Load admin chats
+  Future<void> _loadChats() async {
+    try {
+      final chats = await _chatService.fetchAdminChats();
+      setState(() {
+        chatList = chats;
+      });
+    } catch (e) {
+      print("Error fetching chats: $e");
     }
-    adminId = user.uid;
+  }
 
-    _loadMessages();
+  /// Load messages for selected chat
+  Future<void> _loadMessages(String residentId, String requestId) async {
+    try {
+      final msgs = await _chatService.fetchChatMessages(
+        residentId: residentId,
+        requestId: requestId,
+      );
+      setState(() {
+        messages = msgs;
+        selectedResidentId = residentId;
+        selectedRequestId = requestId;
+      });
 
-    // Poll messages every 3 seconds
-    _pollingTimer = Timer.periodic(
-      const Duration(seconds: 3),
-      (_) => _loadMessages(),
-    );
+      // Connect WebSocket for real-time messages
+      _chatService.connect((msg) {
+        setState(() {
+          messages.add({
+            "sender": "resident",
+            "message": msg,
+            "timestamp": DateTime.now().toIso8601String()
+          });
+        });
+      }, residentId: residentId, requestId: requestId);
+    } catch (e) {
+      print("Error fetching messages: $e");
+    }
+  }
+
+  /// Send message
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || selectedResidentId == null || selectedRequestId == null) {
+      return;
+    }
+
+    try {
+      await _chatService.sendMessage(
+        residentId: selectedResidentId!,
+        requestId: selectedRequestId!,
+        sender: "admin",
+        message: text,
+        toId: selectedResidentId!,
+      );
+
+      setState(() {
+        messages.add({
+          "sender": "admin",
+          "message": text,
+          "timestamp": DateTime.now().toIso8601String()
+        });
+        _controller.clear();
+      });
+    } catch (e) {
+      print("Error sending message: $e");
+    }
   }
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
-    _messageController.dispose();
-    _scrollController.dispose();
+    _controller.dispose();
+    _chatService.disconnect();
     super.dispose();
-  }
-
-  Future<void> _loadMessages() async {
-    try {
-      final data = await ApiService.getAdminChat(widget.residentId);
-      setState(() {
-        messages = List<Map<String, dynamic>>.from(data);
-      });
-
-      // Auto scroll to bottom
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        }
-      });
-    } catch (e) {
-      debugPrint("Failed to load messages: $e");
-    }
-  }
-
-  Future<void> _sendMessage() async {
-    final text = _messageController.text.trim();
-    if (text.isEmpty) return;
-
-    setState(() => _isSending = true);
-
-    try {
-      await ApiService.sendAdminChat(
-        requestId: widget.residentId,
-        senderId: adminId,
-        senderRole: "admin",
-        message: text,
-      );
-
-      _messageController.clear();
-      await _loadMessages();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to send message")),
-      );
-    } finally {
-      setState(() => _isSending = false);
-    }
-  }
-
-  bool _isMyMessage(Map<String, dynamic> msg) {
-    return msg['sender_id'] == adminId;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Chat with Resident"),
-        backgroundColor: const Color(0xFF1565C0),
-      ),
-      body: Column(
+      appBar: AppBar(title: const Text("Admin Chat")),
+      body: Row(
         children: [
-          // Messages
-          Expanded(
+          // Chat List
+          SizedBox(
+            width: 250,
             child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final msg = messages[index];
-                final isMe = _isMyMessage(msg);
-
-                return Align(
-                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                    decoration: BoxDecoration(
-                      color: isMe ? const Color(0xFF1565C0) : Colors.grey.shade200,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-                        bottomRight: isMe ? Radius.zero : const Radius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      msg['message'] ?? '',
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Colors.black87,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
+              itemCount: chatList.length,
+              itemBuilder: (_, index) {
+                final chat = chatList[index];
+                return ListTile(
+                  title: Text(chat["resident_id"]),
+                  subtitle: Text(chat["last_message"] ?? ""),
+                  onTap: () {
+                    _loadMessages(chat["resident_id"], chat["request_id"]);
+                  },
+                  selected: chat["resident_id"] == selectedResidentId,
                 );
               },
             ),
           ),
 
-          // Input box
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 5,
-                )
-              ],
-            ),
-            child: Row(
+          // Chat Window
+          Expanded(
+            child: Column(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: "Type your message...",
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: messages.length,
+                    itemBuilder: (_, i) {
+                      final msg = messages[i];
+                      final isAdmin = msg["sender"] == "admin";
+                      return Align(
+                        alignment:
+                            isAdmin ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isAdmin ? Colors.blue[200] : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(msg["message"]),
+                        ),
+                      );
+                    },
                   ),
                 ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: const Color(0xFF1565C0),
-                  child: IconButton(
-                    icon: _isSending
-                        ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                        : const Icon(Icons.send, color: Colors.white),
-                    onPressed: _isSending ? null : _sendMessage,
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          decoration:
+                              const InputDecoration(hintText: "Type message..."),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.send),
+                        onPressed: _sendMessage,
+                      ),
+                    ],
                   ),
                 ),
               ],

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✅ Firebase Auth import
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -13,21 +13,19 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _isLoading = false; // Loading indicator
+  bool _isLoading = false;
 
-  Future<void> signUp(BuildContext context, String role) async {
-    if (emailController.text.isEmpty ||
-        passwordController.text.isEmpty ||
-        nameController.text.isEmpty) {
+  Future<void> signUp(BuildContext context) async {
+    if (nameController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("All fields are required")),
       );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       // Firebase signup
@@ -41,14 +39,14 @@ class _SignupScreenState extends State<SignupScreen> {
       await userCredential.user
           ?.updateDisplayName(nameController.text.trim());
 
-      // Navigate based on role
-      if (role == 'resident') {
-        Navigator.pushReplacementNamed(context, '/resident_dashboard');
-      } else if (role == 'worker') {
-        Navigator.pushReplacementNamed(context, '/worker_dashboard');
-      } else if (role == 'admin') {
-        Navigator.pushReplacementNamed(context, '/admin_dashboard');
-      }
+      final userId = userCredential.user!.uid;
+
+      // Navigate to Role Selection screen and pass userId
+      Navigator.pushReplacementNamed(
+        context,
+        '/roleSelection',
+        arguments: userId,
+      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Account created successfully!")),
@@ -76,37 +74,17 @@ class _SignupScreenState extends State<SignupScreen> {
         SnackBar(content: Text("Error: $e")),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final role = ModalRoute.of(context)?.settings.arguments as String? ?? 'resident';
-
-    Color roleColor;
-    String roleLabel;
-    switch (role) {
-      case 'worker':
-        roleColor = Colors.orange;
-        roleLabel = 'Worker';
-        break;
-      case 'admin':
-        roleColor = Colors.green;
-        roleLabel = 'Admin';
-        break;
-      default:
-        roleColor = Colors.blue;
-        roleLabel = 'Resident';
-    }
-
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [roleColor.withOpacity(0.8), Colors.white],
+            colors: [Color(0xFF1565C0), Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -116,19 +94,19 @@ class _SignupScreenState extends State<SignupScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
-                Text(
+                const Text(
                   'Create Account',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: roleColor,
+                    color: Color(0xFF1565C0),
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Sign up to manage your $roleLabel tasks',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                const Text(
+                  'Sign up to get started',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
@@ -198,9 +176,9 @@ class _SignupScreenState extends State<SignupScreen> {
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: _isLoading ? null : () => signUp(context, role),
+                          onPressed: _isLoading ? null : () => signUp(context),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: roleColor,
+                            backgroundColor: const Color(0xFF1565C0),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                             elevation: 5,
@@ -212,7 +190,8 @@ class _SignupScreenState extends State<SignupScreen> {
                               : const Text(
                                   'Sign Up',
                                   style: TextStyle(
-                                      fontSize: 20, fontWeight: FontWeight.bold),
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold),
                                 ),
                         ),
                       ),
@@ -259,12 +238,12 @@ class _SignupScreenState extends State<SignupScreen> {
                         style: TextStyle(color: Colors.grey)),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pushNamed(context, '/login', arguments: role);
+                        Navigator.pushReplacementNamed(context, '/login');
                       },
-                      child: Text(
+                      child: const Text(
                         'Login',
                         style: TextStyle(
-                          color: roleColor,
+                          color: Color(0xFF1565C0),
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),

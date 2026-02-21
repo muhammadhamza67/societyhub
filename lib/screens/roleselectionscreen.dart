@@ -1,35 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
   const RoleSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+
+    // 1️⃣ Try getting UID from arguments
+    String? userId =
+        ModalRoute.of(context)?.settings.arguments as String?;
+
+    // 2️⃣ If arguments missing → get from Firebase directly
+    userId ??= FirebaseAuth.instance.currentUser?.uid;
+
+    // 3️⃣ If still null → show error
+    if (userId == null) {
+      return const Scaffold(
+        body: Center(
+          child: Text(
+            'User not found. Please login again.',
+            style: TextStyle(fontSize: 18),
+          ),
+        ),
+      );
+    }
+
+    // ================= UI =================
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+
+            const Text(
               'Welcome to SocietyHub',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 30,
                 fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 40),
+
+            const SizedBox(height: 50),
 
             RoleButton(
               icon: Icons.person,
               label: 'Resident',
               color: Colors.blue,
               onTap: () {
-                Navigator.pushNamed(context, '/login', arguments: 'resident');
+                Navigator.pushReplacementNamed(
+                  context,
+                  '/resident_dashboard',
+                  arguments: userId,   // ✅ residentId
+                );
               },
             ),
+
             const SizedBox(height: 20),
 
             RoleButton(
@@ -37,9 +65,14 @@ class RoleSelectionScreen extends StatelessWidget {
               label: 'Worker',
               color: Colors.orange,
               onTap: () {
-                Navigator.pushNamed(context, '/login', arguments: 'worker');
+                Navigator.pushReplacementNamed(
+                  context,
+                  '/worker_dashboard',
+                  arguments: userId,   // ✅ workerId
+                );
               },
             ),
+
             const SizedBox(height: 20),
 
             RoleButton(
@@ -47,7 +80,11 @@ class RoleSelectionScreen extends StatelessWidget {
               label: 'Admin',
               color: Colors.green,
               onTap: () {
-                Navigator.pushNamed(context, '/login', arguments: 'admin');
+                Navigator.pushReplacementNamed(
+                  context,
+                  '/admin_dashboard',
+                  arguments: userId,
+                );
               },
             ),
           ],
@@ -76,23 +113,17 @@ class RoleButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(12),
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 28),
+            Icon(icon, color: color, size: 30),
             const SizedBox(width: 12),
             Text(
               label,

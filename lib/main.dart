@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:societyhub/screens/admin/admin_manage_workers_screen.dart';
-import 'firebase_options.dart';
-
 import 'package:societyhub/screens/admin/AdminManageResidentsScreen.dart';
-
- // ✅ NEW
 import 'package:societyhub/screens/admin/admin_dashboard.dart';
 import 'package:societyhub/screens/admin/admin_track_tasks.dart';
 import 'package:societyhub/screens/admin/managerequesttaskscreen.dart';
@@ -21,18 +17,19 @@ import 'package:societyhub/screens/worker/worker_task_list.dart';
 import 'package:societyhub/screens/worker/worker_profile_screen.dart';
 
 import 'screens/login_screen.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  runApp(SocietyHubApp());
+  runApp(const SocietyHubApp());
 }
 
 class SocietyHubApp extends StatelessWidget {
+  const SocietyHubApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -50,68 +47,151 @@ class SocietyHubApp extends StatelessWidget {
           unselectedItemColor: Colors.grey,
         ),
       ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const RoleSelectionScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/signup': (context) => const SignupScreen(),
+      initialRoute: '/login',
 
-        // ================= RESIDENT =================
-        '/resident_dashboard': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments;
-          if (args == null || args is! String) {
-            return const Scaffold(
-              body: Center(child: Text('Resident ID missing!')),
-            );
-          }
-          return ResidentDashboardScreen(residentId: args);
-        },
-        '/service_request_form': (context) =>
-            ServiceRequestForm(residentId: ''),
-        '/request_tracking': (context) =>
-            const RequestTracking(residentId: ''),
+      // 🔹 Use onGenerateRoute to handle argument-based navigation
+      onGenerateRoute: (settings) {
+        final args = settings.arguments;
 
-        // ================= WORKER =================
-        '/worker_dashboard': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments;
-          if (args == null || args is! String) {
-            return const Scaffold(
-              body: Center(child: Text('Worker ID missing!')),
-            );
-          }
-          return WorkerDashboardScreen(workerId: args);
-        },
-        '/worker_task_list': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments;
-          if (args == null || args is! String) {
-            return const Scaffold(
-              body: Center(child: Text('Worker ID missing!')),
-            );
-          }
-          return WorkerTaskListScreen(workerId: args);
-        },
-        '/worker_profile': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments;
-          if (args == null || args is! String) {
-            return const Scaffold(
-              body: Center(child: Text('Worker ID missing!')),
-            );
-          }
-          return WorkerProfileScreen(workerId: args);
-        },
+        switch (settings.name) {
+          // ================= AUTH =================
+          case '/login':
+            return MaterialPageRoute(builder: (_) => const LoginScreen());
+          case '/signup':
+            return MaterialPageRoute(builder: (_) => const SignupScreen());
+          case '/roleSelection':
+            return MaterialPageRoute(builder: (_) => const RoleSelectionScreen());
 
-        // ================= ADMIN =================
-        '/admin_dashboard': (context) => const AdminDashboardScreen(),
-        '/admin_track_tasks': (context) => const AdminTrackTasks(),
-        '/manage_request_task': (context) =>
-            const ManageRequestTaskScreen(),
-        '/admin_manage_residents': (context) =>
-            const AdminManageResidentsScreen(),
+          // ================= RESIDENT =================
+          case '/resident_dashboard':
+            if (args is String) {
+              return MaterialPageRoute(
+                  builder: (_) => WillPopScope(
+                        onWillPop: () async {
+                          Navigator.pushReplacementNamed(context, '/roleSelection');
+                          return false;
+                        },
+                        child: ResidentDashboardScreen(residentId: args),
+                      ));
+            }
+            return _missingIdPage('Resident ID missing!');
+          case '/service_request_form':
+            if (args is String) {
+              return MaterialPageRoute(
+                  builder: (_) => WillPopScope(
+                        onWillPop: () async {
+                          Navigator.pushReplacementNamed(context, '/roleSelection');
+                          return false;
+                        },
+                        child: ServiceRequestForm(residentId: args),
+                      ));
+            }
+            return _missingIdPage('Resident ID missing!');
+          case '/request_tracking':
+            if (args is String) {
+              return MaterialPageRoute(
+                  builder: (_) => WillPopScope(
+                        onWillPop: () async {
+                          Navigator.pushReplacementNamed(context, '/roleSelection');
+                          return false;
+                        },
+                        child: RequestTracking(residentId: args),
+                      ));
+            }
+            return _missingIdPage('Resident ID missing!');
 
-        // ✅ NEW: ADMIN MANAGE WORKERS
-        '/admin_manage_workers': (context) =>
-            const AdminManageWorkersScreen(),
+          // ================= WORKER =================
+          case '/worker_dashboard':
+            return MaterialPageRoute(
+                builder: (_) => WillPopScope(
+                      onWillPop: () async {
+                        Navigator.pushReplacementNamed(context, '/roleSelection');
+                        return false;
+                      },
+                      child: const WorkerDashboardScreen(),
+                    ));
+          case '/worker_task_list':
+            return MaterialPageRoute(
+                builder: (_) => WillPopScope(
+                      onWillPop: () async {
+                        Navigator.pushReplacementNamed(context, '/roleSelection');
+                        return false;
+                      },
+                      child: const WorkerTaskListScreen(),
+                    ));
+          case '/worker_profile':
+            if (args is String) {
+              return MaterialPageRoute(
+                  builder: (_) => WillPopScope(
+                        onWillPop: () async {
+                          Navigator.pushReplacementNamed(context, '/roleSelection');
+                          return false;
+                        },
+                        child: WorkerProfileScreen(workerId: args),
+                      ));
+            }
+            return _missingIdPage('Worker ID missing!');
+
+          // ================= ADMIN =================
+          case '/admin_dashboard':
+            return MaterialPageRoute(
+                builder: (_) => WillPopScope(
+                      onWillPop: () async {
+                        Navigator.pushReplacementNamed(context, '/roleSelection');
+                        return false;
+                      },
+                      child: const AdminDashboardScreen(),
+                    ));
+          case '/admin_track_tasks':
+            return MaterialPageRoute(
+                builder: (_) => WillPopScope(
+                      onWillPop: () async {
+                        Navigator.pushReplacementNamed(context, '/roleSelection');
+                        return false;
+                      },
+                      child: const AdminTrackTasks(),
+                    ));
+          case '/manage_request_task':
+            return MaterialPageRoute(
+                builder: (_) => WillPopScope(
+                      onWillPop: () async {
+                        Navigator.pushReplacementNamed(context, '/roleSelection');
+                        return false;
+                      },
+                      child: const ManageRequestTaskScreen(),
+                    ));
+          case '/admin_manage_residents':
+            return MaterialPageRoute(
+                builder: (_) => WillPopScope(
+                      onWillPop: () async {
+                        Navigator.pushReplacementNamed(context, '/roleSelection');
+                        return false;
+                      },
+                      child: const AdminManageResidentsScreen(),
+                    ));
+          case '/admin_manage_workers':
+            return MaterialPageRoute(
+                builder: (_) => WillPopScope(
+                      onWillPop: () async {
+                        Navigator.pushReplacementNamed(context, '/roleSelection');
+                        return false;
+                      },
+                      child: const AdminManageWorkersScreen(),
+                    ));
+
+          default:
+            return _missingIdPage('Route not found!');
+        }
       },
+    );
+  }
+
+  // 🔹 Helper page for missing IDs or invalid routes
+  MaterialPageRoute _missingIdPage(String message) {
+    return MaterialPageRoute(
+      builder: (_) => Scaffold(
+        body: Center(child: Text(message, style: const TextStyle(fontSize: 18))),
+      ),
     );
   }
 }

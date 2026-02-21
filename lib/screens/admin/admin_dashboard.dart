@@ -25,12 +25,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> fetchDashboardData() async {
     try {
       final allRequests = await ApiService.getAllRequests(); 
-      final allWorkers = await ApiService.getAllWorkers(); // 🔹 fetch all workers
+      final allWorkers = await ApiService.getAllWorkers();
 
       setState(() {
         totalRequests = allRequests.length;
         pendingRequests = allRequests.where((r) => r['status'] == 'Pending').length;
-        totalWorkers = allWorkers.length; // 🔹 update total workers
+        totalWorkers = allWorkers.length;
         isLoading = false;
       });
     } catch (e) {
@@ -43,103 +43,112 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  // 🔹 Handle Android back button
+  Future<bool> _onWillPop() async {
+    Navigator.pushNamedAndRemoveUntil(context, '/roleSelection', (route) => false);
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Admin Dashboard"),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/'); 
-          },
-        ),
-        backgroundColor: primaryGreen,
-        elevation: 2,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [primaryGreen.withOpacity(0.85), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+    return WillPopScope(
+      onWillPop: _onWillPop, // intercept system back button
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Admin Dashboard"),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.pushNamedAndRemoveUntil(context, '/roleSelection', (route) => false);
+            },
           ),
+          backgroundColor: primaryGreen,
+          elevation: 2,
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Welcome Admin 👋',
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: primaryGreen,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [primaryGreen.withOpacity(0.85), Colors.white],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Welcome Admin 👋',
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                            color: primaryGreen,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Manage user requests and worker tasks efficiently.',
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: 16,
-                          height: 1.4,
+                        const SizedBox(height: 6),
+                        Text(
+                          'Manage user requests and worker tasks efficiently.',
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: 16,
+                            height: 1.4,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 30),
+                        const SizedBox(height: 30),
 
-                      // ===== Summary Cards =====
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildSummaryCard(
-                              'Total Requests', totalRequests.toString(), primaryGreen, Icons.assignment),
-                          _buildSummaryCard('Pending', pendingRequests.toString(),
-                              Colors.orangeAccent, Icons.pending_actions),
-                          _buildSummaryCard('Total Workers', totalWorkers.toString(),
-                              Colors.blueAccent, Icons.engineering), // 🔹 new icon for workers
-                        ],
-                      ),
-                      const SizedBox(height: 40),
+                        // ===== Summary Cards =====
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildSummaryCard(
+                                'Total Requests', totalRequests.toString(), primaryGreen, Icons.assignment),
+                            _buildSummaryCard('Pending', pendingRequests.toString(),
+                                Colors.orangeAccent, Icons.pending_actions),
+                            _buildSummaryCard('Total Workers', totalWorkers.toString(),
+                                Colors.blueAccent, Icons.engineering),
+                          ],
+                        ),
+                        const SizedBox(height: 40),
 
-                      // ===== Dashboard Buttons =====
-                      _buildDashboardButton(
-                        context,
-                        'Manage Requests / Tasks',
-                        primaryGreen,
-                        '/manage_request_task',
-                        Icons.manage_accounts,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildDashboardButton(
-                        context,
-                        'Track Tasks',
-                        primaryGreen,
-                        '/admin_track_tasks',
-                        Icons.track_changes,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildDashboardButton(
-                        context,
-                        'Manage Residents',
-                        primaryGreen,
-                        '/admin_manage_residents',
-                        Icons.people_alt,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildDashboardButton(
-                        context,
-                        'Manage Workers', // 🔹 new button
-                        primaryGreen,
-                        '/admin_manage_workers', // 🔹 route to workers screen
-                        Icons.engineering,
-                      ),
-                    ],
-                  ),
+                        // ===== Dashboard Buttons =====
+                        _buildDashboardButton(
+                          context,
+                          'Manage Requests / Tasks',
+                          primaryGreen,
+                          '/manage_request_task',
+                          Icons.manage_accounts,
+                        ),
+                        const SizedBox(height: 20),
+                        _buildDashboardButton(
+                          context,
+                          'Track Tasks',
+                          primaryGreen,
+                          '/admin_track_tasks',
+                          Icons.track_changes,
+                        ),
+                        const SizedBox(height: 20),
+                        _buildDashboardButton(
+                          context,
+                          'Manage Residents',
+                          primaryGreen,
+                          '/admin_manage_residents',
+                          Icons.people_alt,
+                        ),
+                        const SizedBox(height: 20),
+                        _buildDashboardButton(
+                          context,
+                          'Manage Workers',
+                          primaryGreen,
+                          '/admin_manage_workers',
+                          Icons.engineering,
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),

@@ -32,7 +32,7 @@ class ApiService {
 
     if (response.statusCode == 200) {
       final rawData = List<dynamic>.from(jsonDecode(response.body));
-      final normalized = rawData.map((req) {
+      return rawData.map((req) {
         final status = req['status'] ?? 'Pending';
         return {
           "title": req['title'] ?? '',
@@ -43,8 +43,6 @@ class ApiService {
           "_id": req['_id'],
         };
       }).toList();
-
-      return normalized;
     } else {
       return [];
     }
@@ -54,7 +52,7 @@ class ApiService {
     final response = await http.get(Uri.parse("$baseUrl/admin/requests"));
     if (response.statusCode == 200) {
       final rawData = List<dynamic>.from(jsonDecode(response.body));
-      final normalized = rawData.map((req) {
+      return rawData.map((req) {
         final status = req['status'] ?? 'Pending';
         return {
           "title": req['title'] ?? '',
@@ -65,31 +63,58 @@ class ApiService {
           "_id": req['_id'],
         };
       }).toList();
-
-      return normalized;
     } else {
       return [];
     }
   }
 
-  static Future<bool> assignTask(String requestId, String workerId) async {
+  // ================= ASSIGN TASK =================
+  // Updated to accept workerUid
+  static Future<bool> assignTask(String requestId, String workerUid) async {
+  try {
     final response = await http.post(
       Uri.parse("$baseUrl/admin/assign-task"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "request_id": requestId,
-        "worker_id": workerId,
+        "worker_id": workerUid, // ✅ send worker ID from dropdown
       }),
     );
+
+    if (response.statusCode != 200) {
+      print("Assign task failed: ${response.body}");
+    }
+
     return response.statusCode == 200;
+  } catch (e) {
+    print("Error assigning task: $e");
+    return false;
+  }
+}
+
+  // ================= WORKER TASKS =================
+  static Future<List<Map<String, dynamic>>> getOpenTasks() async {
+    final response = await http.get(Uri.parse("$baseUrl/worker/tasks"));
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    }
+    return [];
   }
 
-  static Future<List<dynamic>> getWorkerTasks(String workerId) async {
-    final response =
-        await http.get(Uri.parse("$baseUrl/worker/tasks/$workerId"));
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
+  static Future<List<Map<String, dynamic>>> getTasksForWorker(String workerUid) async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/worker/tasks/$workerUid"),
+        headers: {"Content-Type": "application/json"},
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        return data.map((task) => Map<String, dynamic>.from(task)).toList();
+      }
+      return [];
+    } catch (e) {
+      print("Error fetching tasks for worker $workerUid: $e");
       return [];
     }
   }
@@ -98,10 +123,7 @@ class ApiService {
     final response = await http.put(
       Uri.parse("$baseUrl/worker/update-status"),
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "task_id": taskId,
-        "status": status,
-      }),
+      body: jsonEncode({"task_id": taskId, "status": status}),
     );
     return response.statusCode == 200;
   }
@@ -145,9 +167,7 @@ class ApiService {
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['exists'] == true) {
-          return data['data'];
-        }
+        if (data['exists'] == true) return data['data'];
       }
       return null;
     } catch (e) {
@@ -157,8 +177,7 @@ class ApiService {
 
   static Future<bool> checkResidentProfile(String residentId) async {
     try {
-      final response =
-          await http.get(Uri.parse("$baseUrl/resident/profile/$residentId"));
+      final response = await http.get(Uri.parse("$baseUrl/resident/profile/$residentId"));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['exists'] == true;
@@ -172,9 +191,7 @@ class ApiService {
   static Future<List<dynamic>> getAllResidents() async {
     try {
       final response = await http.get(Uri.parse("$baseUrl/admin/residents"));
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
+      if (response.statusCode == 200) return jsonDecode(response.body);
       return [];
     } catch (e) {
       return [];
@@ -207,13 +224,10 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> getWorkerProfileById(String workerId) async {
     try {
-      final response =
-          await http.get(Uri.parse("$baseUrl/worker/profile/$workerId"));
+      final response = await http.get(Uri.parse("$baseUrl/worker/profile/$workerId"));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['exists'] == true) {
-          return data['data'];
-        }
+        if (data['exists'] == true) return data['data'];
       }
       return null;
     } catch (e) {
@@ -223,8 +237,7 @@ class ApiService {
 
   static Future<bool> checkWorkerProfile(String workerId) async {
     try {
-      final response =
-          await http.get(Uri.parse("$baseUrl/worker/check/$workerId"));
+      final response = await http.get(Uri.parse("$baseUrl/worker/check/$workerId"));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['exists'] == true;
@@ -240,37 +253,37 @@ class ApiService {
     try {
       final response = await http.get(Uri.parse("$baseUrl/admin/workers"));
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final List data = jsonDecode(response.body);
+        return data.map((w) => {
+          "_id": w["_id"] ?? "",
+          "name": w["name"] ?? "",
+          "firebase_uid": w["firebase_uid"] ?? "",
+        }).toList();
       }
       return [];
     } catch (e) {
+      print("Error fetching workers: $e");
       return [];
     }
   }
 
   static Future<bool> approveWorker(String workerId) async {
-    final response = await http.put(
-      Uri.parse("$baseUrl/admin/approve-worker/$workerId"),
-    );
+    final response = await http.put(Uri.parse("$baseUrl/admin/approve-worker/$workerId"));
     return response.statusCode == 200;
   }
 
   static Future<bool> rejectWorker(String workerId) async {
-    final response = await http.put(
-      Uri.parse("$baseUrl/admin/reject-worker/$workerId"),
-    );
+    final response = await http.put(Uri.parse("$baseUrl/admin/reject-worker/$workerId"));
     return response.statusCode == 200;
   }
 
   // ================= CHAT =================
-  // Get messages for resident by request
   static Future<List<Map<String, dynamic>>> getResidentChat(String requestId) async {
     try {
       final response = await http.get(
         Uri.parse("$baseUrl/chat/resident/$requestId"),
         headers: {"Content-Type": "application/json"},
       );
-
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         return data.map((e) => Map<String, dynamic>.from(e)).toList();
@@ -281,7 +294,6 @@ class ApiService {
     }
   }
 
-  // Send message as resident
   static Future<bool> sendResidentChat({
     required String requestId,
     required String senderId,
@@ -305,14 +317,12 @@ class ApiService {
     }
   }
 
-  // Get messages for admin by request
   static Future<List<Map<String, dynamic>>> getAdminChat(String requestId) async {
     try {
       final response = await http.get(
         Uri.parse("$baseUrl/chat/admin/$requestId"),
         headers: {"Content-Type": "application/json"},
       );
-
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         return data.map((e) => Map<String, dynamic>.from(e)).toList();
@@ -323,7 +333,6 @@ class ApiService {
     }
   }
 
-  // Send message as admin
   static Future<bool> sendAdminChat({
     required String requestId,
     required String senderId,
@@ -347,14 +356,12 @@ class ApiService {
     }
   }
 
-  // Get list of resident IDs that have chats (for admin chat list screen)
   static Future<List<String>> getAdminChats() async {
     try {
       final response = await http.get(
-        Uri.parse("$baseUrl/chat/admin/list"), // Backend endpoint must exist
+        Uri.parse("$baseUrl/chat/admin/list"),
         headers: {"Content-Type": "application/json"},
       );
-
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         return List<String>.from(data);
@@ -381,6 +388,45 @@ class ApiService {
         return 'Closed';
       default:
         return 'Pending';
+    }
+  }
+
+  // ================= RATING =================
+  static Future<bool> submitWorkerRating({
+    required String workerId,
+    required String residentId,
+    required String requestId,
+    required int rating,
+    required String comment,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/resident/rate-worker"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "worker_id": workerId,
+          "resident_id": residentId,
+          "request_id": requestId,
+          "rating": rating,
+          "comment": comment,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getWorkerRatings(String workerId) async {
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/worker/ratings/$workerId"),
+        headers: {"Content-Type": "application/json"},
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 }

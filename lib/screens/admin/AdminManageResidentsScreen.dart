@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:societyhub/screens/admin/admin_chat_screen.dart';
 import 'package:societyhub/services/api_service.dart';
-import 'admin_chat_list_screen.dart'; // 👈 Import the chat list screen
 
 class AdminManageResidentsScreen extends StatefulWidget {
   const AdminManageResidentsScreen({super.key});
@@ -73,10 +73,11 @@ class _AdminManageResidentsScreenState
                         ),
                       ),
                       onPressed: () {
+                        // Open the simplified admin chat screen
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const AdminChatListScreen(),
+                            builder: (_) => const AdminChatScreen(),
                           ),
                         );
                       },

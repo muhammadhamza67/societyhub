@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:societyhub/screens/resident/RateWorkerScreen.dart';
+import 'package:societyhub/screens/resident/resident_chat_screen.dart';
 import 'package:societyhub/services/api_service.dart';
-import 'resident_chat_screen.dart'; // 👈 Make sure this import exists
 
 class RequestTracking extends StatefulWidget {
   final String residentId;
@@ -24,32 +25,32 @@ class _RequestTrackingState extends State<RequestTracking> {
 
   Future<void> fetchRequests() async {
     try {
-      final data =
-          await ApiService.getRequestsForResident(widget.residentId);
+      final data = await ApiService.getRequestsForResident(widget.residentId);
       setState(() {
         requests = List<Map<String, dynamic>>.from(data);
         isLoading = false;
       });
     } catch (e) {
-      isLoading = false;
+      setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Failed to fetch requests")),
       );
     }
   }
 
-  /// STATUS COLOR MAPPING (Professional lifecycle)
+  // STATUS COLOR
   Color statusColor(String status) {
-    switch (status) {
-      case 'Pending':
+    switch (status.toLowerCase()) {
+      case 'pending':
         return Colors.orange;
-      case 'Assigned':
+      case 'assigned':
         return Colors.blue;
-      case 'In Progress':
+      case 'in progress':
         return Colors.purple;
-      case 'Resolved':
+      case 'resolved':
+      case 'completed':
         return Colors.green;
-      case 'Closed':
+      case 'closed':
         return Colors.grey;
       default:
         return Colors.black54;
@@ -72,7 +73,9 @@ class _RequestTrackingState extends State<RequestTracking> {
                   itemCount: requests.length,
                   itemBuilder: (context, index) {
                     final r = requests[index];
-                    final status = r['status'] ?? 'Pending';
+                    final status = (r['status'] ?? 'Pending').toString();
+                    final requestId = r['_id'] ?? '';
+                    final workerId = r['worker_id'] ?? 'demo_worker';
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
@@ -91,7 +94,7 @@ class _RequestTrackingState extends State<RequestTracking> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          /// TITLE
+                          // TITLE
                           Text(
                             r['title'] ?? '',
                             style: const TextStyle(
@@ -99,22 +102,17 @@ class _RequestTrackingState extends State<RequestTracking> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-
                           const SizedBox(height: 6),
-
-                          /// CATEGORY + PRIORITY
+                          // CATEGORY + PRIORITY
                           Text("Category: ${r['category'] ?? '-'}"),
                           Text("Priority: ${r['priority'] ?? '-'}"),
-
                           const SizedBox(height: 10),
-
-                          /// STATUS BADGE
+                          // STATUS BADGE
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color:
-                                  statusColor(status).withOpacity(0.15),
+                              color: statusColor(status).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -125,12 +123,40 @@ class _RequestTrackingState extends State<RequestTracking> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          // RATE WORKER BUTTON
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.star),
+                              label: const Text("Rate Worker"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryBlue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => RateWorkerScreen(
+                                      workerId: workerId,
+                                      residentId: widget.residentId,
+                                      requestId: requestId,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
                         ],
                       ),
                     );
                   },
                 ),
-      // ================= CHAT BUTTON =================
+
+      // CHAT BUTTON
       floatingActionButton: requests.isEmpty
           ? null
           : FloatingActionButton.extended(
@@ -138,18 +164,16 @@ class _RequestTrackingState extends State<RequestTracking> {
               label: const Text("Chat with Admin"),
               icon: const Icon(Icons.chat),
               onPressed: () {
-                if (requests.isNotEmpty) {
-                  final firstRequestId = requests[0]['_id'];
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ResidentChatScreen(
-                        requestId: firstRequestId,
-                        residentId: widget.residentId,
-                      ),
-                    ),
-                  );
-                }
+                Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => ResidentChatScreen(
+      residentId: widget.residentId,          // Required
+      requestId: requests.first['_id'] ?? '', // Required
+    ),
+  ),
+);
+
               },
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,

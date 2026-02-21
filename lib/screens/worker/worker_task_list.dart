@@ -1,38 +1,60 @@
 import 'package:flutter/material.dart';
-import 'package:societyhub/services/api_service.dart'; // API service
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:societyhub/services/api_service.dart';
 
 class WorkerTaskListScreen extends StatefulWidget {
-  final String workerId; // 🔹 Added parameter
-
-  const WorkerTaskListScreen({super.key, required this.workerId});
+  const WorkerTaskListScreen({super.key});
 
   @override
   State<WorkerTaskListScreen> createState() => _WorkerTaskListScreenState();
 }
 
 class _WorkerTaskListScreenState extends State<WorkerTaskListScreen> {
-  final Color workerColor = const Color(0xFFF9A825); // Worker theme
+  final Color workerColor = const Color(0xFFF9A825);
   List<Map<String, dynamic>> tasks = [];
   bool isLoading = true;
+
+  late String workerUid;
 
   @override
   void initState() {
     super.initState();
+
+    // ✅ Get Firebase UID automatically
+    workerUid = FirebaseAuth.instance.currentUser!.uid;
+    print("Worker UID = $workerUid");
+
     fetchTasks();
   }
 
   Future<void> fetchTasks() async {
+    setState(() => isLoading = true);
+
     try {
-      // 🔹 Use the dynamic workerId passed to the widget
-      final fetchedTasks = await ApiService.getWorkerTasks(widget.workerId);
+      // ✅ Fetch only tasks assigned to this worker
+      final fetchedTasks =
+          await ApiService.getTasksForWorker(workerUid);
+
+      final mappedTasks =
+          List<Map<String, dynamic>>.from(fetchedTasks.map((t) {
+        return {
+          "title": t['title'] ?? '',
+          "description": t['description'] ?? '',
+          "status": t['status'] ?? 'Pending',
+          "requestId": t['_id'] ?? '',
+          "residentId": t['resident_id'] ?? '',
+          "residentName": t['resident_name'] ?? '',
+        };
+      }));
+
       setState(() {
-        tasks = List<Map<String, dynamic>>.from(fetchedTasks);
+        tasks = mappedTasks;
         isLoading = false;
       });
     } catch (e) {
       setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to fetch tasks")),
+        SnackBar(content: Text("Failed to fetch tasks: $e")),
       );
     }
   }
@@ -40,136 +62,86 @@ class _WorkerTaskListScreenState extends State<WorkerTaskListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [workerColor.withOpacity(0.85), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Assigned Tasks',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Tasks assigned by admin',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 25),
-
-                // ===== Task List =====
-                Expanded(
-                  child: isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : tasks.isEmpty
-                          ? const Center(child: Text("No tasks assigned"))
-                          : ListView.builder(
-                              itemCount: tasks.length,
-                              itemBuilder: (context, index) {
-                                final task = tasks[index];
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 15),
-                                  padding: const EdgeInsets.all(18),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(18),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.08),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 6),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: workerColor.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Icon(
-                                          Icons.work_outline,
-                                          color: workerColor,
-                                          size: 26,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              task['title'] ?? '',
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              'Status: ${task['status'] ?? ''}',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: _statusColor(task['status'] ?? ''),
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      appBar: AppBar(
+        title: const Text("Assigned Tasks"),
+        backgroundColor: workerColor,
       ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : tasks.isEmpty
+              ? const Center(child: Text("No tasks assigned"))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: tasks.length,
+                  itemBuilder: (context, index) {
+                    final task = tasks[index];
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      margin: const EdgeInsets.only(bottom: 14),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              task['title'] ?? '',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              task['description'] ?? '',
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Resident: ${task['residentName'] ?? '-'}",
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                                Text(
+                                  task['status'] ?? '-',
+                                  style: TextStyle(
+                                    color: _statusColor(
+                                        task['status'] ?? ''),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 
   static Color _statusColor(String status) {
-    switch (status) {
-      case 'Pending':
+    switch (status.toLowerCase()) {
+      case 'pending':
         return Colors.orange;
-      case 'In Progress':
-        return Colors.blue;
-      case 'Assigned':
+      case 'assigned':
         return Colors.purple;
-      case 'Completed':
+      case 'in progress':
+        return Colors.blue;
+      case 'resolved':
+      case 'completed':
         return Colors.green;
-      default:
+      case 'closed':
         return Colors.grey;
+      default:
+        return Colors.black;
     }
   }
 }

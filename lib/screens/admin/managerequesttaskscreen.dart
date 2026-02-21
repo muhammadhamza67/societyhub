@@ -5,14 +5,18 @@ class ManageRequestTaskScreen extends StatefulWidget {
   const ManageRequestTaskScreen({super.key});
 
   @override
-  State<ManageRequestTaskScreen> createState() => _ManageRequestTaskScreenState();
+  State<ManageRequestTaskScreen> createState() =>
+      _ManageRequestTaskScreenState();
 }
 
 class _ManageRequestTaskScreenState extends State<ManageRequestTaskScreen> {
   final Color primaryGreen = const Color(0xFF2E7D32);
 
+  String? selectedWorkerId; // ✅ Use worker ID instead of Map
+
   List<Map<String, dynamic>> userRequests = [];
   List<Map<String, dynamic>> manageTasks = [];
+  List<Map<String, dynamic>> allWorkers = [];
   bool isLoading = true;
 
   @override
@@ -22,33 +26,44 @@ class _ManageRequestTaskScreenState extends State<ManageRequestTaskScreen> {
   }
 
   Future<void> fetchData() async {
+    setState(() => isLoading = true);
     try {
       final requests = await ApiService.getAllRequests();
       final tasks = await ApiService.getAllTasks();
+      final workers = await ApiService.getAllWorkers();
+
       setState(() {
         userRequests = List<Map<String, dynamic>>.from(requests);
         manageTasks = List<Map<String, dynamic>>.from(tasks);
+        allWorkers = List<Map<String, dynamic>>.from(workers);
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to load requests/tasks")),
+        const SnackBar(content: Text("Failed to load requests/tasks/workers")),
       );
     }
   }
 
   Future<void> assignTask(String requestId) async {
-    
-    const workerId = "worker_001";
-    final success = await ApiService.assignTask(requestId, workerId);
+    if (selectedWorkerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a worker first")),
+      );
+      return;
+    }
+
+    final success = await ApiService.assignTask(
+      requestId,
+      selectedWorkerId!, // ✅ Pass only worker UID
+    );
+
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Task assigned successfully")),
       );
-      fetchData(); 
+      fetchData();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Failed to assign task")),
@@ -75,7 +90,6 @@ class _ManageRequestTaskScreenState extends State<ManageRequestTaskScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      
                       Text(
                         'Manage Requests & Tasks',
                         style: TextStyle(
@@ -87,16 +101,21 @@ class _ManageRequestTaskScreenState extends State<ManageRequestTaskScreen> {
                       const SizedBox(height: 6),
                       Text(
                         'View and manage user requests and worker tasks efficiently.',
-                        style: TextStyle(color: Colors.black87, fontSize: 16, height: 1.4),
+                        style: TextStyle(
+                            color: Colors.black87, fontSize: 16, height: 1.4),
                       ),
                       const SizedBox(height: 30),
 
-                      
+                      // ================= User Requests =================
                       Text(
                         'User Requests',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87),
                       ),
                       const SizedBox(height: 12),
+
                       Column(
                         children: userRequests.map((request) {
                           return Container(
@@ -113,34 +132,70 @@ class _ManageRequestTaskScreenState extends State<ManageRequestTaskScreen> {
                                 ),
                               ],
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Icon(Icons.assignment, size: 30, color: primaryGreen),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        request['title'] ?? '',
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                Row(
+                                  children: [
+                                    Icon(Icons.assignment,
+                                        size: 30, color: primaryGreen),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            request['title'] ?? '',
+                                            style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Status: ${request['status'] ?? ''}',
+                                            style: const TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.black54),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Status: ${request['status'] ?? ''}',
-                                        style: const TextStyle(fontSize: 14, color: Colors.black54),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
+                                const SizedBox(height: 8),
+
+                                // ✅ Dropdown to select worker by ID
+                                DropdownButtonFormField<String>(
+                                  decoration: InputDecoration(
+                                    labelText: "Assign Worker",
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  items: allWorkers.map((w) {
+                                    return DropdownMenuItem<String>(
+                                      value: w["_id"], // only ID
+                                      child: Text("${w['name']}"),
+                                    );
+                                  }).toList(),
+                                  value: selectedWorkerId,
+                                  onChanged: (value) {
+                                    setState(() => selectedWorkerId = value);
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+
                                 if (request['status'] == 'Pending')
                                   ElevatedButton(
-                                    onPressed: () => assignTask(request['_id']),
+                                    onPressed: () =>
+                                        assignTask(request['_id']),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryGreen,
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12)),
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
                                     ),
                                     child: const Text("Assign"),
                                   ),
@@ -149,12 +204,16 @@ class _ManageRequestTaskScreenState extends State<ManageRequestTaskScreen> {
                           );
                         }).toList(),
                       ),
+
                       const SizedBox(height: 30),
 
-                      
+                      // ================= Manage Tasks =================
                       Text(
                         'Manage Tasks',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87),
                       ),
                       const SizedBox(height: 12),
                       Column(
@@ -179,16 +238,21 @@ class _ManageRequestTaskScreenState extends State<ManageRequestTaskScreen> {
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         '${task['title'] ?? ''} - ${task['worker_id'] ?? ''}',
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                        style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         'Status: ${task['status'] ?? ''}',
-                                        style: const TextStyle(fontSize: 14, color: Colors.black54),
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.black54),
                                       ),
                                     ],
                                   ),

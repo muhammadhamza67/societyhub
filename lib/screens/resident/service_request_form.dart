@@ -19,6 +19,42 @@ class _ServiceRequestFormState extends State<ServiceRequestForm> {
   String selectedPriority = 'Normal';
   final Color primaryBlue = const Color(0xFF1565C0);
 
+  bool isSubmitting = false;
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> submitRequest() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => isSubmitting = true);
+
+    bool success = await ApiService.submitRequest(
+      residentId: widget.residentId, // 🔹 Resident ID used here
+      title: titleController.text.trim(),
+      description: descriptionController.text.trim(),
+      category: selectedCategory,
+      priority: selectedPriority,
+    );
+
+    setState(() => isSubmitting = false);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Request Submitted Successfully')),
+      );
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ Submission Failed')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -42,6 +78,7 @@ class _ServiceRequestFormState extends State<ServiceRequestForm> {
                 key: _formKey,
                 child: Column(
                   children: [
+                    // ===== TITLE =====
                     TextFormField(
                       controller: titleController,
                       decoration: const InputDecoration(
@@ -53,6 +90,7 @@ class _ServiceRequestFormState extends State<ServiceRequestForm> {
                     ),
                     const SizedBox(height: 16),
 
+                    // ===== CATEGORY =====
                     DropdownButtonFormField<String>(
                       value: selectedCategory,
                       items: const [
@@ -73,6 +111,7 @@ class _ServiceRequestFormState extends State<ServiceRequestForm> {
                     ),
                     const SizedBox(height: 16),
 
+                    // ===== PRIORITY =====
                     DropdownButtonFormField<String>(
                       value: selectedPriority,
                       items: const [
@@ -88,6 +127,7 @@ class _ServiceRequestFormState extends State<ServiceRequestForm> {
                     ),
                     const SizedBox(height: 16),
 
+                    // ===== DESCRIPTION =====
                     TextFormField(
                       controller: descriptionController,
                       maxLines: 4,
@@ -98,36 +138,28 @@ class _ServiceRequestFormState extends State<ServiceRequestForm> {
                     ),
                     const SizedBox(height: 25),
 
+                    // ===== SUBMIT BUTTON =====
                     SizedBox(
                       width: double.infinity,
-                      height: 48,
+                      height: 50,
                       child: ElevatedButton(
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            bool success = await ApiService.submitRequest(
-                              residentId: widget.residentId,
-                              title: titleController.text.trim(),
-                              description: descriptionController.text.trim(),
-                              category: selectedCategory,
-                              priority: selectedPriority,
-                            );
-
-                            if (success) {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Request Submitted')),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Submission failed')),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text('Submit Request',
-                            style: TextStyle(fontSize: 16)),
+                        onPressed: isSubmitting ? null : submitRequest,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryBlue,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: isSubmitting
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                'Submit Request',
+                                style: TextStyle(
+                                    fontSize: 17, fontWeight: FontWeight.bold),
+                              ),
                       ),
                     ),
                   ],

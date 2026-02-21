@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:societyhub/services/api_service.dart';
 
 class WorkerDashboardScreen extends StatefulWidget {
-  final String workerId; // 🔹 Added workerId parameter
-
-  const WorkerDashboardScreen({super.key, required this.workerId});
+  const WorkerDashboardScreen({super.key});
 
   @override
   State<WorkerDashboardScreen> createState() => _WorkerDashboardScreenState();
 }
 
 class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
-  final Color workerColor = const Color(0xFFF9A825); // Amber / Worker theme
+  final Color workerColor = const Color(0xFFF9A825);
 
   bool isLoading = true;
   List<Map<String, dynamic>> tasks = [];
+
+  late String workerUid;
 
   int totalTasks = 0;
   int pendingTasks = 0;
@@ -24,193 +25,176 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    workerUid = FirebaseAuth.instance.currentUser!.uid;
+    print("Worker UID = $workerUid");
     fetchTasks();
   }
 
   Future<void> fetchTasks() async {
+    setState(() => isLoading = true);
     try {
-      // 🔹 Use dynamic workerId
-      final fetchedTasks = await ApiService.getWorkerTasks(widget.workerId);
-      final mappedTasks = List<Map<String, dynamic>>.from(fetchedTasks);
+      print("Fetching tasks for workerUid: $workerUid");
+      final fetchedTasks = await ApiService.getTasksForWorker(workerUid);
+      print("Fetched tasks: $fetchedTasks");
+
+      final mappedTasks = List<Map<String, dynamic>>.from(fetchedTasks.map((t) {
+        return {
+          "title": t['title'] ?? '',
+          "status": t['status'] ?? 'Pending',
+          "requestId": t['_id'],
+          "residentId": t['resident_id'] ?? '',
+        };
+      }));
 
       setState(() {
         tasks = mappedTasks;
         totalTasks = tasks.length;
-        pendingTasks = tasks.where((t) => t['status'] == 'Pending').length;
-        inProgressTasks =
-            tasks.where((t) => t['status'] == 'In Progress').length;
-        completedTasks =
-            tasks.where((t) => t['status'] == 'Completed').length;
+        pendingTasks =
+            tasks.where((t) => t['status'].toLowerCase() == 'pending').length;
+        inProgressTasks = tasks
+            .where((t) => t['status'].toLowerCase() == 'in progress')
+            .length;
+        completedTasks = tasks
+            .where((t) =>
+                t['status'].toLowerCase() == 'completed' ||
+                t['status'].toLowerCase() == 'resolved')
+            .length;
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      print("Error fetching tasks: $e");
+      setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Failed to fetch tasks")),
       );
     }
   }
 
+  // 🔹 Navigate back to Role Selection
+  Future<bool> _onWillPop() async {
+    Navigator.pushNamedAndRemoveUntil(
+        context, '/roleSelection', (route) => false); // <-- fixed route
+    return false; // prevent default pop
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [workerColor.withOpacity(0.85), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+    return WillPopScope(
+      onWillPop: _onWillPop, // intercept Android back button
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: workerColor,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.pushNamedAndRemoveUntil(
+                  context, '/roleSelection', (route) => false); // <-- fixed route
+            },
           ),
+          title: const Text('Worker Dashboard'),
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ===== Header =====
-                      const Text(
-                        'Welcome Worker 👋',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [workerColor.withOpacity(0.85), Colors.white],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Welcome Worker 👋',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Check your assigned tasks and progress',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.grey.shade700,
+                        const SizedBox(height: 6),
+                        Text(
+                          'Check your assigned tasks and progress',
+                          style: TextStyle(color: Colors.grey.shade700),
                         ),
-                      ),
-                      const SizedBox(height: 25),
-
-                      // ===== Summary Cards =====
-                      Row(
-                        children: [
-                          _summaryCard(
-                            title: 'Total Tasks',
-                            value: totalTasks.toString(),
-                            icon: Icons.assignment,
-                            color: workerColor,
-                          ),
-                          const SizedBox(width: 12),
-                          _summaryCard(
-                            title: 'Pending',
-                            value: pendingTasks.toString(),
-                            icon: Icons.pending_actions,
-                            color: workerColor,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          _summaryCard(
-                            title: 'In Progress',
-                            value: inProgressTasks.toString(),
-                            icon: Icons.work_outline,
-                            color: workerColor,
-                          ),
-                          const SizedBox(width: 12),
-                          _summaryCard(
-                            title: 'Completed',
-                            value: completedTasks.toString(),
-                            icon: Icons.check_circle_outline,
-                            color: workerColor,
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 35),
-
-                      // ===== Action Button =====
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
+                        const SizedBox(height: 25),
+                        Row(
+                          children: [
+                            _summaryCard(
+                                'Total Tasks', totalTasks.toString(), Icons.assignment),
+                            const SizedBox(width: 12),
+                            _summaryCard(
+                                'Pending', pendingTasks.toString(), Icons.pending_actions),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _summaryCard('In Progress', inProgressTasks.toString(),
+                                Icons.work_outline),
+                            const SizedBox(width: 12),
+                            _summaryCard(
+                                'Completed', completedTasks.toString(), Icons.check_circle),
+                          ],
+                        ),
+                        const SizedBox(height: 30),
+                        ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.black,
                             side: BorderSide(color: workerColor, width: 2),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 4,
                           ),
                           onPressed: () {
-                            // 🔹 Pass workerId to task list screen
-                            Navigator.pushNamed(
-                              context,
-                              '/worker_task_list',
-                              arguments: widget.workerId,
-                            );
+                            Navigator.pushNamed(context, '/worker_task_list');
                           },
-                          child: const Text(
-                            'View Assigned Tasks',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          child: const Text('View Assigned Tasks'),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(height: 20),
+                        Expanded(
+                          child: tasks.isEmpty
+                              ? const Center(
+                                  child: Text("No tasks assigned yet"),
+                                )
+                              : ListView.builder(
+                                  itemCount: tasks.length,
+                                  itemBuilder: (context, index) {
+                                    final task = tasks[index];
+                                    return ListTile(
+                                      title: Text(task['title']),
+                                      subtitle: Text(task['status']),
+                                    );
+                                  },
+                                ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ===== Reusable Summary Card =====
-  Widget _summaryCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
+  Widget _summaryCard(String title, String value, IconData icon) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 6),
-            ),
-          ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
-              ),
-            ),
+            Icon(icon, color: workerColor),
+            const SizedBox(height: 10),
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(title),
           ],
         ),
       ),
