@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:societyhub/services/chat_service.dart';
 
 class ResidentChatScreen extends StatefulWidget {
@@ -18,117 +20,194 @@ class ResidentChatScreen extends StatefulWidget {
 class _ResidentChatScreenState extends State<ResidentChatScreen> {
   final ChatService _chatService = ChatService();
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scroll = ScrollController();
 
+  WebSocketChannel? channel;
   List<Map<String, dynamic>> messages = [];
+  bool isConnected = false;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
+    _loadOldMessages();
+    _connectSocket();
   }
 
-  /// Load all messages for this resident/request
-  Future<void> _loadMessages() async {
+  /// Load old messages from backend
+  Future<void> _loadOldMessages() async {
     try {
       final msgs = await _chatService.fetchChatMessages(
         residentId: widget.residentId,
         requestId: widget.requestId,
       );
-      setState(() {
-        messages = msgs;
-      });
-
-      // Connect WebSocket to receive real-time admin messages
-      _chatService.connect((msg) {
-        setState(() {
-          messages.add({
-            "sender": "admin",
-            "message": msg,
-            "timestamp": DateTime.now().toIso8601String()
-          });
-        });
-      }, residentId: widget.residentId, requestId: widget.requestId);
+      setState(() => messages = msgs);
+      _scrollToBottom();
     } catch (e) {
-      print("Error loading messages: $e");
+      debugPrint("Failed to load old messages: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to load old messages")),
+      );
     }
   }
 
-  /// Send a message
-  Future<void> _sendMessage() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-
+  /// Connect WebSocket with auto-reconnect
+  void _connectSocket() {
     try {
-      await _chatService.sendMessage(
+      channel = _chatService.connectSocket(
         residentId: widget.residentId,
         requestId: widget.requestId,
-        sender: "resident",
-        message: text,
-        toId: "admin", // assuming admin ID is handled as "admin"
+        onMessage: (msg) {
+          setState(() => messages.add(msg));
+          _scrollToBottom();
+        },
       );
-
-      setState(() {
-        messages.add({
-          "sender": "resident",
-          "message": text,
-          "timestamp": DateTime.now().toIso8601String()
-        });
-        _controller.clear();
-      });
+      setState(() => isConnected = true);
     } catch (e) {
-      print("Error sending message: $e");
+      debugPrint("WebSocket connection failed: $e");
+      setState(() => isConnected = false);
+      _retryConnection();
     }
+  }
+
+  /// Retry connecting after a delay
+  void _retryConnection() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!isConnected) _connectSocket();
+    });
+  }
+
+  /// Send a message
+  void _sendMessage() {
+    if (_controller.text.trim().isEmpty || !isConnected || channel == null) return;
+
+    final msg = {
+      "resident_id": widget.residentId,
+      "request_id": widget.requestId,
+      "sender": "resident",
+      "message": _controller.text.trim(),
+      "timestamp": DateTime.now().toIso8601String(),
+    };
+
+    try {
+      channel!.sink.add(jsonEncode(msg));
+      setState(() => messages.add(msg));
+      _controller.clear();
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint("Failed to send message: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to send message")),
+      );
+    }
+  }
+
+  /// Scroll chat to bottom
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  /// Chat bubble widget
+  Widget bubble(Map msg) {
+    final isResident = msg["sender"] == "resident";
+    DateTime? time;
+
+    try {
+      time = msg["timestamp"] != null
+          ? DateTime.parse(msg["timestamp"]).toLocal()
+          : null;
+    } catch (_) {
+      time = null;
+    }
+
+    return Align(
+      alignment: isResident ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(maxWidth: 260),
+        decoration: BoxDecoration(
+          color: isResident ? const Color(0xFFDCF8C6) : Colors.grey[300],
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isResident ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Text(
+              msg["message"] ?? '',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            if (time != null)
+              Text(
+                "${time.hour}:${time.minute.toString().padLeft(2, '0')}",
+                style: const TextStyle(fontSize: 10, color: Colors.black54),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   void dispose() {
+    channel?.sink.close();
     _controller.dispose();
-    _chatService.disconnect();
+    _scroll.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Chat with Admin")),
+      appBar: AppBar(
+        title: const Text("Chat with Admin"),
+        backgroundColor: isConnected ? Colors.green : Colors.red,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Icon(
+              isConnected ? Icons.wifi : Icons.wifi_off,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
+              controller: _scroll,
               padding: const EdgeInsets.all(12),
               itemCount: messages.length,
-              itemBuilder: (_, i) {
-                final msg = messages[i];
-                final isResident = msg["sender"] == "resident";
-                return Align(
-                  alignment:
-                      isResident ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isResident ? Colors.green[200] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(msg["message"]),
-                  ),
-                );
-              },
+              itemBuilder: (_, i) => bubble(messages[i]),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            color: Colors.grey[100],
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    decoration:
-                        const InputDecoration(hintText: "Type your message..."),
+                    decoration: const InputDecoration(
+                      hintText: "Type a message...",
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
+                const SizedBox(width: 6),
                 IconButton(
-                  icon: const Icon(Icons.send),
+                  icon: const Icon(Icons.send, color: Colors.green),
                   onPressed: _sendMessage,
                 ),
               ],

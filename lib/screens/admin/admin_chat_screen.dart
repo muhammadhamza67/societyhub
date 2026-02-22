@@ -1,8 +1,17 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:societyhub/services/chat_service.dart';
 
 class AdminChatScreen extends StatefulWidget {
-  const AdminChatScreen({super.key});
+  final String residentId;
+  final String requestId;
+
+  const AdminChatScreen({
+    super.key,
+    required this.residentId,
+    required this.requestId,
+  });
 
   @override
   State<AdminChatScreen> createState() => _AdminChatScreenState();
@@ -11,164 +20,205 @@ class AdminChatScreen extends StatefulWidget {
 class _AdminChatScreenState extends State<AdminChatScreen> {
   final ChatService _chatService = ChatService();
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scroll = ScrollController();
 
-  List<Map<String, dynamic>> chatList = [];
+  WebSocketChannel? channel;
   List<Map<String, dynamic>> messages = [];
-
-  String? selectedResidentId;
-  String? selectedRequestId;
+  bool isConnected = false;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadChats();
+    _loadOldMessages();
+    _connectSocket();
   }
 
-  /// Load admin chats
-  Future<void> _loadChats() async {
+  /// ==============================
+  /// LOAD OLD CHAT
+  /// ==============================
+  Future<void> _loadOldMessages() async {
     try {
-      final chats = await _chatService.fetchAdminChats();
-      setState(() {
-        chatList = chats;
-      });
-    } catch (e) {
-      print("Error fetching chats: $e");
-    }
-  }
-
-  /// Load messages for selected chat
-  Future<void> _loadMessages(String residentId, String requestId) async {
-    try {
-      final msgs = await _chatService.fetchChatMessages(
-        residentId: residentId,
-        requestId: requestId,
+      final msgs = await _chatService.fetchAdminResidentChat(
+        residentId: widget.residentId,
+        requestId: widget.requestId,
       );
+
       setState(() {
         messages = msgs;
-        selectedResidentId = residentId;
-        selectedRequestId = requestId;
+        isLoading = false;
       });
 
-      // Connect WebSocket for real-time messages
-      _chatService.connect((msg) {
-        setState(() {
-          messages.add({
-            "sender": "resident",
-            "message": msg,
-            "timestamp": DateTime.now().toIso8601String()
-          });
-        });
-      }, residentId: residentId, requestId: requestId);
+      _scrollToBottom();
     } catch (e) {
-      print("Error fetching messages: $e");
+      setState(() => isLoading = false);
+      debugPrint("❌ Load messages error: $e");
     }
   }
 
-  /// Send message
-  Future<void> _sendMessage() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty || selectedResidentId == null || selectedRequestId == null) {
-      return;
-    }
-
+  /// ==============================
+  /// CONNECT SOCKET
+  /// ==============================
+  void _connectSocket() {
     try {
-      await _chatService.sendMessage(
-        residentId: selectedResidentId!,
-        requestId: selectedRequestId!,
-        sender: "admin",
-        message: text,
-        toId: selectedResidentId!,
+      channel = _chatService.connectSocket(
+        residentId: widget.residentId,
+        requestId: widget.requestId,
+
+        onMessage: (msg) {
+          setState(() => messages.add(msg));
+          _scrollToBottom();
+        },
+
+        onError: (error) {
+          debugPrint("❌ WebSocket error: $error");
+          isConnected = false;
+          _retryConnect();
+        },
+
+        onDone: () {
+          debugPrint("⚠️ WebSocket closed");
+          isConnected = false;
+          _retryConnect();
+        },
       );
 
-      setState(() {
-        messages.add({
-          "sender": "admin",
-          "message": text,
-          "timestamp": DateTime.now().toIso8601String()
-        });
-        _controller.clear();
-      });
+      isConnected = true;
     } catch (e) {
-      print("Error sending message: $e");
+      debugPrint("❌ Connection failed: $e");
+      _retryConnect();
     }
+  }
+
+  void _retryConnect() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!isConnected) _connectSocket();
+    });
+  }
+
+  /// ==============================
+  /// SEND MESSAGE
+  /// ==============================
+  void _sendMessage() {
+    if (_controller.text.trim().isEmpty || !isConnected) return;
+
+    final msg = {
+      "resident_id": widget.residentId,
+      "request_id": widget.requestId,
+      "sender": "admin",
+      "message": _controller.text.trim(),
+      "timestamp": DateTime.now().toIso8601String(),
+    };
+
+    channel?.sink.add(jsonEncode(msg));
+    setState(() => messages.add(msg));
+
+    _controller.clear();
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  /// ==============================
+  /// CHAT BUBBLE
+  /// ==============================
+  Widget bubble(Map msg) {
+    final isAdmin = msg["sender"] == "admin";
+
+    DateTime? time;
+    try {
+      if (msg["timestamp"] != null) {
+        time = DateTime.parse(msg["timestamp"]).toLocal();
+      }
+    } catch (_) {}
+
+    return Align(
+      alignment: isAdmin ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(12),
+        constraints: const BoxConstraints(maxWidth: 260),
+        decoration: BoxDecoration(
+          color: isAdmin ? const Color(0xFFDCF8C6) : Colors.grey[300],
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment:
+              isAdmin ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Text(msg["message"] ?? ""),
+            if (time != null)
+              Text(
+                "${time.hour}:${time.minute.toString().padLeft(2, '0')}",
+                style: const TextStyle(fontSize: 10, color: Colors.black54),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   void dispose() {
+    channel?.sink.close();
     _controller.dispose();
-    _chatService.disconnect();
+    _scroll.dispose();
     super.dispose();
   }
 
+  /// ==============================
+  /// UI
+  /// ==============================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Admin Chat")),
-      body: Row(
+      appBar: AppBar(
+        title: Text("Chat with Resident ${widget.residentId}"),
+        backgroundColor: const Color(0xFF2E7D32), // your admin theme
+      ),
+      body: Column(
         children: [
-          // Chat List
-          SizedBox(
-            width: 250,
-            child: ListView.builder(
-              itemCount: chatList.length,
-              itemBuilder: (_, index) {
-                final chat = chatList[index];
-                return ListTile(
-                  title: Text(chat["resident_id"]),
-                  subtitle: Text(chat["last_message"] ?? ""),
-                  onTap: () {
-                    _loadMessages(chat["resident_id"], chat["request_id"]);
-                  },
-                  selected: chat["resident_id"] == selectedResidentId,
-                );
-              },
-            ),
-          ),
+          if (isLoading) const LinearProgressIndicator(),
 
-          // Chat Window
           Expanded(
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
+            child: messages.isEmpty && !isLoading
+                ? const Center(child: Text("No messages yet"))
+                : ListView.builder(
+                    controller: _scroll,
                     padding: const EdgeInsets.all(12),
                     itemCount: messages.length,
-                    itemBuilder: (_, i) {
-                      final msg = messages[i];
-                      final isAdmin = msg["sender"] == "admin";
-                      return Align(
-                        alignment:
-                            isAdmin ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isAdmin ? Colors.blue[200] : Colors.grey[300],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(msg["message"]),
-                        ),
-                      );
-                    },
+                    itemBuilder: (_, i) => bubble(messages[i]),
+                  ),
+          ),
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            color: Colors.grey[100],
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(
+                      hintText: "Type a message...",
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          decoration:
-                              const InputDecoration(hintText: "Type message..."),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.send),
-                        onPressed: _sendMessage,
-                      ),
-                    ],
-                  ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.green),
+                  onPressed: _sendMessage,
                 ),
               ],
             ),

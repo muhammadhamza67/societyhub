@@ -13,8 +13,9 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
   final Color workerColor = const Color(0xFFF9A825);
 
   bool isLoading = true;
-  List<Map<String, dynamic>> tasks = [];
+  bool isRatingLoading = true;
 
+  List<Map<String, dynamic>> tasks = [];
   late String workerUid;
 
   int totalTasks = 0;
@@ -22,21 +23,23 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
   int inProgressTasks = 0;
   int completedTasks = 0;
 
+  // Rating fields
+  double averageRating = 0.0;
+  int totalReviews = 0;
+  List<Map<String, dynamic>> comments = [];
+
   @override
   void initState() {
     super.initState();
     workerUid = FirebaseAuth.instance.currentUser!.uid;
-    print("Worker UID = $workerUid");
     fetchTasks();
+    fetchRatings();
   }
 
   Future<void> fetchTasks() async {
     setState(() => isLoading = true);
     try {
-      print("Fetching tasks for workerUid: $workerUid");
       final fetchedTasks = await ApiService.getTasksForWorker(workerUid);
-      print("Fetched tasks: $fetchedTasks");
-
       final mappedTasks = List<Map<String, dynamic>>.from(fetchedTasks.map((t) {
         return {
           "title": t['title'] ?? '',
@@ -62,7 +65,6 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
         isLoading = false;
       });
     } catch (e) {
-      print("Error fetching tasks: $e");
       setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Failed to fetch tasks")),
@@ -70,17 +72,33 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
     }
   }
 
+  // ================= FETCH RATINGS =================
+  Future<void> fetchRatings() async {
+    setState(() => isRatingLoading = true);
+    final data = await ApiService.getWorkerRatings(workerUid);
+    if (data != null) {
+      setState(() {
+        averageRating = (data['average_rating'] ?? 0.0).toDouble();
+        totalReviews = data['total_reviews'] ?? 0;
+        comments = List<Map<String, dynamic>>.from(data['reviews'] ?? []);
+        isRatingLoading = false;
+      });
+    } else {
+      setState(() => isRatingLoading = false);
+    }
+  }
+
   // 🔹 Navigate back to Role Selection
   Future<bool> _onWillPop() async {
     Navigator.pushNamedAndRemoveUntil(
-        context, '/roleSelection', (route) => false); // <-- fixed route
-    return false; // prevent default pop
+        context, '/roleSelection', (route) => false);
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: _onWillPop, // intercept Android back button
+      onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: workerColor,
@@ -88,7 +106,7 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
               Navigator.pushNamedAndRemoveUntil(
-                  context, '/roleSelection', (route) => false); // <-- fixed route
+                  context, '/roleSelection', (route) => false);
             },
           ),
           title: const Text('Worker Dashboard'),
@@ -121,7 +139,9 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                           'Check your assigned tasks and progress',
                           style: TextStyle(color: Colors.grey.shade700),
                         ),
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 20),
+
+                        // ================= SUMMARY CARDS =================
                         Row(
                           children: [
                             _summaryCard(
@@ -141,7 +161,72 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                                 'Completed', completedTasks.toString(), Icons.check_circle),
                           ],
                         ),
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 20),
+
+                        // ================= RATING CARD =================
+                        Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 3,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: isRatingLoading
+                                ? const Center(child: CircularProgressIndicator())
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            averageRating.toStringAsFixed(1),
+                                            style: const TextStyle(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Row(
+                                            children: List.generate(
+                                              5,
+                                              (index) => Icon(
+                                                index < averageRating.round()
+                                                    ? Icons.star
+                                                    : Icons.star_border,
+                                                color: Colors.amber,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            "($totalReviews reviews)",
+                                            style: TextStyle(
+                                                color: Colors.grey.shade700),
+                                          )
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      comments.isEmpty
+                                          ? const Text("No feedback yet")
+                                          : Column(
+                                              children: comments
+                                                  .map((c) => ListTile(
+                                                        leading: Icon(Icons.person,
+                                                            color: workerColor),
+                                                        title: Text(c['comment'] ?? ''),
+                                                        subtitle: Text(
+                                                            'By: ${c['resident_name'] ?? 'Resident'}'),
+                                                        trailing: Text(
+                                                            '${c['rating']} ⭐'),
+                                                      ))
+                                                  .toList(),
+                                            )
+                                    ],
+                                  ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:societyhub/screens/admin/AdminResidentListScreen.dart';
 import 'package:societyhub/screens/admin/admin_chat_screen.dart';
+
 import 'package:societyhub/services/api_service.dart';
 
 class AdminManageResidentsScreen extends StatefulWidget {
@@ -73,11 +75,11 @@ class _AdminManageResidentsScreenState
                         ),
                       ),
                       onPressed: () {
-                        // Open the simplified admin chat screen
+                        // Open the admin chat list screen (resident list)
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const AdminChatScreen(),
+                            builder: (_) => const AdminResidentListScreen(),
                           ),
                         );
                       },
@@ -93,58 +95,79 @@ class _AdminManageResidentsScreenState
                             itemCount: residents.length,
                             itemBuilder: (context, index) {
                               final resident = residents[index];
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 15),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.08),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      resident['name'] ?? '',
-                                      style: const TextStyle(
-                                          fontSize: 18, fontWeight: FontWeight.bold),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'House No: ${resident['house_no'] ?? '-'}',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    Text(
-                                      'Gully: ${resident['gully'] ?? '-'}',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    Text(
-                                      'Phone: ${resident['phone'] ?? '-'}',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        const Text(
-                                          "Verified: ",
-                                          style: TextStyle(fontWeight: FontWeight.bold),
+                              return GestureDetector(
+                                onTap: () {
+                                  // Open chat with this resident directly
+                                  if (resident['resident_id'] != null &&
+                                      resident['request_id'] != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => AdminChatScreen(
+                                          residentId: resident['resident_id'],
+                                          requestId: resident['request_id'],
                                         ),
-                                        Text(
-                                          resident['verified'] == true ? "Yes" : "No",
-                                          style: TextStyle(
-                                              color: resident['verified'] == true
-                                                  ? Colors.green
-                                                  : Colors.red),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 15),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        resident['name'] ?? '',
+                                        style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'House No: ${resident['house_no'] ?? '-'}',
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                      Text(
+                                        'Gully: ${resident['gully'] ?? '-'}',
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                      Text(
+                                        'Phone: ${resident['phone'] ?? '-'}',
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            "Verified: ",
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          Text(
+                                            resident['verified'] == true
+                                                ? "Yes"
+                                                : "No",
+                                            style: TextStyle(
+                                                color: resident['verified'] == true
+                                                    ? Colors.green
+                                                    : Colors.red),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             },
