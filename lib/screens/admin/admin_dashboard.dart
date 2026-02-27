@@ -13,7 +13,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   int totalRequests = 0;
   int pendingRequests = 0;
-  int totalWorkers = 0; 
+  int totalWorkers = 0;
   bool isLoading = true;
 
   @override
@@ -24,7 +24,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> fetchDashboardData() async {
     try {
-      final allRequests = await ApiService.getAllRequests(); 
+      final allRequests = await ApiService.getAllRequests();
       final allWorkers = await ApiService.getAllWorkers();
 
       setState(() {
@@ -34,9 +34,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Failed to load dashboard data")),
       );
@@ -52,7 +50,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: _onWillPop, // intercept system back button
+      onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
           title: const Text("Admin Dashboard"),
@@ -78,75 +76,87 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               padding: const EdgeInsets.all(24),
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Welcome Admin 👋',
-                          style: TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                            color: primaryGreen,
+                  : SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Welcome Admin 👋',
+                            style: TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.bold,
+                              color: primaryGreen,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Manage user requests and worker tasks efficiently.',
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 16,
-                            height: 1.4,
+                          const SizedBox(height: 6),
+                          Text(
+                            'Manage user requests and worker tasks efficiently.',
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontSize: 16,
+                              height: 1.4,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 30),
+                          const SizedBox(height: 30),
 
-                        // ===== Summary Cards =====
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildSummaryCard(
-                                'Total Requests', totalRequests.toString(), primaryGreen, Icons.assignment),
-                            _buildSummaryCard('Pending', pendingRequests.toString(),
-                                Colors.orangeAccent, Icons.pending_actions),
-                            _buildSummaryCard('Total Workers', totalWorkers.toString(),
-                                Colors.blueAccent, Icons.engineering),
-                          ],
-                        ),
-                        const SizedBox(height: 40),
+                          // ===== Summary Cards =====
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _buildSummaryCard(
+                                  'Total Requests', totalRequests.toString(), primaryGreen, Icons.assignment),
+                              _buildSummaryCard('Pending', pendingRequests.toString(),
+                                  Colors.orangeAccent, Icons.pending_actions),
+                              _buildSummaryCard('Total Workers', totalWorkers.toString(),
+                                  Colors.blueAccent, Icons.engineering),
+                            ],
+                          ),
+                          const SizedBox(height: 40),
 
-                        // ===== Dashboard Buttons =====
-                        _buildDashboardButton(
-                          context,
-                          'Manage Requests / Tasks',
-                          primaryGreen,
-                          '/manage_request_task',
-                          Icons.manage_accounts,
-                        ),
-                        const SizedBox(height: 20),
-                        _buildDashboardButton(
-                          context,
-                          'Track Tasks',
-                          primaryGreen,
-                          '/admin_track_tasks',
-                          Icons.track_changes,
-                        ),
-                        const SizedBox(height: 20),
-                        _buildDashboardButton(
-                          context,
-                          'Manage Residents',
-                          primaryGreen,
-                          '/admin_manage_residents',
-                          Icons.people_alt,
-                        ),
-                        const SizedBox(height: 20),
-                        _buildDashboardButton(
-                          context,
-                          'Manage Workers',
-                          primaryGreen,
-                          '/admin_manage_workers',
-                          Icons.engineering,
-                        ),
-                      ],
+                          // ===== Dashboard Buttons =====
+                          _buildDashboardButton(
+                            context,
+                            'Manage Requests / Tasks',
+                            primaryGreen,
+                            '/manage_request_task',
+                            Icons.manage_accounts,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDashboardButton(
+                            context,
+                            'Track Tasks',
+                            primaryGreen,
+                            '/admin_track_tasks',
+                            Icons.track_changes,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDashboardButton(
+                            context,
+                            'Manage Residents',
+                            primaryGreen,
+                            '/admin_manage_residents',
+                            Icons.people_alt,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDashboardButton(
+                            context,
+                            'Manage Workers',
+                            primaryGreen,
+                            '/admin_manage_workers',
+                            Icons.engineering,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // 🔹 New Announcements Button
+                          _buildDashboardButton(
+                            context,
+                            'Manage Announcements',
+                            primaryGreen,
+                            '/admin_announcements',
+                            Icons.campaign,
+                          ),
+                        ],
+                      ),
                     ),
             ),
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:societyhub/screens/admin/admin_add_announcement_screen.dart';
 import 'package:societyhub/screens/admin/admin_manage_workers_screen.dart';
 import 'package:societyhub/screens/admin/AdminManageResidentsScreen.dart';
 import 'package:societyhub/screens/admin/admin_dashboard.dart';
@@ -15,6 +16,7 @@ import 'package:societyhub/screens/signup_screen.dart';
 import 'package:societyhub/screens/worker/worker_dashboard.dart';
 import 'package:societyhub/screens/worker/worker_task_list.dart';
 import 'package:societyhub/screens/worker/worker_profile_screen.dart';
+
 
 import 'screens/login_screen.dart';
 import 'firebase_options.dart';
@@ -177,6 +179,17 @@ class SocietyHubApp extends StatelessWidget {
                         return false;
                       },
                       child: const AdminManageWorkersScreen(),
+                    ));
+
+          // 🔹 NEW: Admin Announcements
+          case '/admin_announcements':
+            return MaterialPageRoute(
+                builder: (_) => WillPopScope(
+                      onWillPop: () async {
+                        Navigator.pushReplacementNamed(context, '/admin_dashboard');
+                        return false;
+                      },
+                      child: AdminAddAnnouncementScreen(adminId: "admin123"), // replace with dynamic adminId
                     ));
 
           default:

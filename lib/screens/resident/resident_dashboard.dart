@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'service_request_form.dart';
 import 'request_tracking.dart';
 import 'resident_info_screen.dart';
+import 'announcement_list_screen.dart'; // 🔹 Import your announcements screen
 import 'package:societyhub/services/api_service.dart';
 
 class ResidentDashboardScreen extends StatefulWidget {
@@ -49,16 +50,15 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
     }
   }
 
-  // 🔹 Handle back navigation
   Future<bool> _onWillPop() async {
     Navigator.pushNamedAndRemoveUntil(context, '/roleSelection', (route) => false);
-    return false; // prevent default pop
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: _onWillPop, // intercept Android back button
+      onWillPop: _onWillPop,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Resident Dashboard'),
@@ -78,12 +78,13 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ResidentInfoScreen(residentId: widget.residentId),
+                        builder: (_) =>
+                            ResidentInfoScreen(residentId: widget.residentId),
                       ),
                     );
                     break;
                   case 1:
-                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
                     break;
                 }
               },
@@ -133,28 +134,41 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
                         ),
                         const SizedBox(height: 35),
 
-                        // SUBMIT REQUEST BUTTON
+                        // ACTION BUTTONS USING MaterialPageRoute
                         _buildActionButton(
                           text: 'Submit Service Request',
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => ServiceRequestForm(residentId: widget.residentId),
+                                builder: (_) =>
+                                    ServiceRequestForm(residentId: widget.residentId),
                               ),
                             );
                           },
                         ),
                         const SizedBox(height: 15),
-
-                        // TRACK REQUEST BUTTON
                         _buildActionButton(
                           text: 'Track My Requests',
                           onTap: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => RequestTracking(residentId: widget.residentId),
+                                builder: (_) =>
+                                    RequestTracking(residentId: widget.residentId),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 15),
+                        _buildActionButton(
+                          text: 'View Announcements',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    AnnouncementListScreen(residentId: widget.residentId),
                               ),
                             );
                           },
@@ -168,9 +182,6 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
     );
   }
 
-  // ==========================
-  // SUMMARY STAT CARD
-  // ==========================
   Widget _buildStatCard(String title, int count, IconData icon) {
     return Expanded(
       child: Container(
@@ -202,9 +213,6 @@ class _ResidentDashboardScreenState extends State<ResidentDashboardScreen> {
     );
   }
 
-  // ==========================
-  // ACTION BUTTON
-  // ==========================
   Widget _buildActionButton({required String text, required VoidCallback onTap}) {
     return SizedBox(
       height: 55,

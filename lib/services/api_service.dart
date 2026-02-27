@@ -354,6 +354,38 @@ class ApiService {
         return 'Pending';
     }
   }
+  // ================= ANNOUNCEMENTS =================
+
+static Future<bool> addAnnouncement(
+    String title,
+    String description,
+    String priority,
+    String createdBy,
+) async {
+  final response = await http.post(
+    Uri.parse("$baseUrl/admin/announcement"),
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode({
+      "title": title,
+      "description": description,
+      "priority": priority,
+      "created_by": createdBy,
+    }),
+  );
+
+  return response.statusCode == 200;
+}
+
+static Future<List<dynamic>> getAnnouncements() async {
+  final response = await http.get(
+    Uri.parse("$baseUrl/announcements"),
+  );
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  }
+  return [];
+}
 
   // ================= RATING =================
   static Future<bool> submitWorkerRating({
