@@ -124,127 +124,130 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
               padding: const EdgeInsets.all(20),
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'Welcome Worker 👋',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
+                  : SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Welcome Worker 👋',
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Check your assigned tasks and progress',
-                          style: TextStyle(color: Colors.grey.shade700),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ================= SUMMARY CARDS =================
-                        Row(
-                          children: [
-                            _summaryCard(
-                                'Total Tasks', totalTasks.toString(), Icons.assignment),
-                            const SizedBox(width: 12),
-                            _summaryCard(
-                                'Pending', pendingTasks.toString(), Icons.pending_actions),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            _summaryCard('In Progress', inProgressTasks.toString(),
-                                Icons.work_outline),
-                            const SizedBox(width: 12),
-                            _summaryCard(
-                                'Completed', completedTasks.toString(), Icons.check_circle),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ================= RATING CARD =================
-                        Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Check your assigned tasks and progress',
+                            style: TextStyle(color: Colors.grey.shade700),
                           ),
-                          elevation: 3,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: isRatingLoading
-                                ? const Center(child: CircularProgressIndicator())
-                                : Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            averageRating.toStringAsFixed(1),
-                                            style: const TextStyle(
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Row(
-                                            children: List.generate(
-                                              5,
-                                              (index) => Icon(
-                                                index < averageRating.round()
-                                                    ? Icons.star
-                                                    : Icons.star_border,
-                                                color: Colors.amber,
+                          const SizedBox(height: 20),
+
+                          // ================= SUMMARY CARDS =================
+                          Row(
+                            children: [
+                              _summaryCard('Total Tasks', totalTasks.toString(),
+                                  Icons.assignment),
+                              const SizedBox(width: 12),
+                              _summaryCard('Pending', pendingTasks.toString(),
+                                  Icons.pending_actions),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              _summaryCard('In Progress', inProgressTasks.toString(),
+                                  Icons.work_outline),
+                              const SizedBox(width: 12),
+                              _summaryCard('Completed', completedTasks.toString(),
+                                  Icons.check_circle),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // ================= RATING CARD =================
+                          Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: isRatingLoading
+                                  ? const Center(child: CircularProgressIndicator())
+                                  : Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              averageRating.toStringAsFixed(1),
+                                              style: const TextStyle(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            "($totalReviews reviews)",
-                                            style: TextStyle(
-                                                color: Colors.grey.shade700),
-                                          )
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      comments.isEmpty
-                                          ? const Text("No feedback yet")
-                                          : Column(
-                                              children: comments
-                                                  .map((c) => ListTile(
-                                                        leading: Icon(Icons.person,
-                                                            color: workerColor),
-                                                        title: Text(c['comment'] ?? ''),
-                                                        subtitle: Text(
-                                                            'By: ${c['resident_name'] ?? 'Resident'}'),
-                                                        trailing: Text(
-                                                            '${c['rating']} ⭐'),
-                                                      ))
-                                                  .toList(),
+                                            const SizedBox(width: 12),
+                                            Row(
+                                              children: List.generate(
+                                                5,
+                                                (index) => Icon(
+                                                  index < averageRating.round()
+                                                      ? Icons.star
+                                                      : Icons.star_border,
+                                                  color: Colors.amber,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              "($totalReviews reviews)",
+                                              style: TextStyle(
+                                                  color: Colors.grey.shade700),
                                             )
-                                    ],
-                                  ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+                                        comments.isEmpty
+                                            ? const Text("No feedback yet")
+                                            : Column(
+                                                children: comments
+                                                    .map((c) => ListTile(
+                                                          leading: Icon(Icons.person,
+                                                              color: workerColor),
+                                                          title:
+                                                              Text(c['comment'] ?? ''),
+                                                          subtitle: Text(
+                                                              'By: ${c['resident_name'] ?? 'Resident'}'),
+                                                          trailing:
+                                                              Text('${c['rating']} ⭐'),
+                                                        ))
+                                                    .toList(),
+                                              )
+                                      ],
+                                    ),
+                            ),
                           ),
-                        ),
 
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            side: BorderSide(color: workerColor, width: 2),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                              side: BorderSide(color: workerColor, width: 2),
+                            ),
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/worker_task_list');
+                            },
+                            child: const Text('View Assigned Tasks'),
                           ),
-                          onPressed: () {
-                            Navigator.pushNamed(context, '/worker_task_list');
-                          },
-                          child: const Text('View Assigned Tasks'),
-                        ),
-                        const SizedBox(height: 20),
-                        Expanded(
-                          child: tasks.isEmpty
-                              ? const Center(
-                                  child: Text("No tasks assigned yet"),
-                                )
+                          const SizedBox(height: 20),
+
+                          // ================= TASK LIST =================
+                          tasks.isEmpty
+                              ? const Center(child: Text("No tasks assigned yet"))
                               : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
                                   itemCount: tasks.length,
                                   itemBuilder: (context, index) {
                                     final task = tasks[index];
@@ -254,8 +257,9 @@ class _WorkerDashboardScreenState extends State<WorkerDashboardScreen> {
                                     );
                                   },
                                 ),
-                        ),
-                      ],
+                          const SizedBox(height: 20),
+                        ],
+                      ),
                     ),
             ),
           ),

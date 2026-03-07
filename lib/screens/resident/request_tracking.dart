@@ -24,6 +24,7 @@ class _RequestTrackingState extends State<RequestTracking> {
   }
 
   Future<void> fetchRequests() async {
+    setState(() => isLoading = true);
     try {
       final data = await ApiService.getRequestsForResident(widget.residentId);
       setState(() {
@@ -38,7 +39,6 @@ class _RequestTrackingState extends State<RequestTracking> {
     }
   }
 
-  // STATUS COLOR
   Color statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -55,6 +55,104 @@ class _RequestTrackingState extends State<RequestTracking> {
       default:
         return Colors.black54;
     }
+  }
+
+  // Show dialog for inline editing
+  void showEditDialog(Map<String, dynamic> request) {
+    final titleController = TextEditingController(text: request['title'] ?? '');
+    final categoryController =
+        TextEditingController(text: request['category'] ?? '');
+    final priorityController =
+        TextEditingController(text: request['priority'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Edit Request"),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Title'),
+              ),
+              TextField(
+                controller: categoryController,
+                decoration: const InputDecoration(labelText: 'Category'),
+              ),
+              TextField(
+                controller: priorityController,
+                decoration: const InputDecoration(labelText: 'Priority'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final success = await ApiService.updateRequest(
+                request['_id'],
+                {
+                  "title": titleController.text,
+                  "category": categoryController.text,
+                  "priority": priorityController.text,
+                },
+              );
+              if (success) {
+                fetchRequests();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Request updated")),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Failed to update request")),
+                );
+              }
+            },
+            child: const Text("Update"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Show confirmation dialog for delete
+  void showDeleteDialog(String requestId) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Confirm Delete"),
+        content: const Text("Are you sure you want to delete this request?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              bool success = await ApiService.deleteRequest(requestId);
+              if (success) {
+                fetchRequests();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Request deleted")),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Failed to delete request")),
+                );
+              }
+            },
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -77,6 +175,7 @@ class _RequestTrackingState extends State<RequestTracking> {
                     final status = (r['status'] ?? 'Pending').toString();
                     final requestId = r['_id'] ?? '';
                     final workerId = r['worker_id'] ?? 'demo_worker';
+                    final canEditDelete = status.toLowerCase() == 'pending';
 
                     return Card(
                       shape: RoundedRectangleBorder(
@@ -168,8 +267,8 @@ class _RequestTrackingState extends State<RequestTracking> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 14),
                                 ),
                                 onPressed: () {
                                   Navigator.push(
@@ -185,6 +284,35 @@ class _RequestTrackingState extends State<RequestTracking> {
                                 },
                               ),
                             ),
+
+                            // INLINE EDIT & DELETE BUTTONS
+                            if (canEditDelete) ...[
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.edit),
+                                      label: const Text("Edit"),
+                                      style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.orange),
+                                      onPressed: () => showEditDialog(r),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.delete),
+                                      label: const Text("Delete"),
+                                      style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red),
+                                      onPressed: () =>
+                                          showDeleteDialog(requestId),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),

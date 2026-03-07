@@ -83,6 +83,38 @@ class ApiService {
       return [];
     }
   }
+  static Future<bool> deleteRequest(String requestId) async {
+  try {
+    final response = await http.delete(
+      Uri.parse("$baseUrl/resident/delete-request/$requestId"),
+      headers: {"Content-Type": "application/json"},
+    );
+
+    print("Delete response: ${response.body}");
+
+    return response.statusCode == 200;
+  } catch (e) {
+    print("Delete Error: $e");
+    return false;
+  }
+}
+static Future<bool> updateRequest(
+    String requestId, Map<String, dynamic> data) async {
+  try {
+    final response = await http.put(
+      Uri.parse("$baseUrl/resident/update-request/$requestId"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(data),
+    );
+
+    print("Update response: ${response.body}");
+
+    return response.statusCode == 200;
+  } catch (e) {
+    print("Update Error: $e");
+    return false;
+  }
+}
 
   // ================= ASSIGN TASK =================
   static Future<bool> assignTask(String requestId, String workerUid) async {
